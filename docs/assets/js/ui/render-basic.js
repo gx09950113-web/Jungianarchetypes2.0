@@ -114,7 +114,7 @@ export async function initRenderBasic(rootId = 'app') {
     head.textContent = `第 ${idx + 1} 題`;
     block.appendChild(head);
 
-    // 題幹（stem）
+    // 題幹
     if (stem) {
       const stemEl = document.createElement('div');
       stemEl.style.cssText = 'margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;';
@@ -191,51 +191,71 @@ export async function initRenderBasic(rootId = 'app') {
   actions.appendChild(btnReset);
   root.appendChild(actions);
 
-  // 送出
+  // 送出（強化版）
   form.addEventListener('submit', (e) => {
     e.preventDefault();
 
-    const total = items.length;
-    const names = items.map((it, idx) => `q_${pickId(it, idx)}`);
-    const missing = names.filter((n) => !answerMap.has(n));
-    if (missing.length > 0) {
-      alert(`尚有 ${missing.length} 題未作答，請完成所有題目。`);
-      return;
+    try {
+      const total = items.length;
+      const names = items.map((it, idx) => `q_${pickId(it, idx)}`);
+      const missing = names.filter((n) => !answerMap.has(n));
+      if (missing.length > 0) {
+        alert(`尚有 ${missing.length} 題未作答，請完成所有題目。`);
+        return;
+      }
+
+      // 收集答案（依洗牌後順序）
+      const answers = [];
+      const orderCurrent = [];
+      items.forEach((it, idx) => {
+        const id = pickId(it, idx);
+        const name = `q_${id}`;
+        const val = Number(answerMap.get(name));
+        answers.push(val);
+        orderCurrent.push(id);
+      });
+
+      const session = {
+        id: util.uuid(),
+        kind: 'basic',
+        createdAt: util.nowISO(),
+        version: 1,
+        meta: { total, scale: 'A/B 5-point (-2..2)' },
+        originalOrder,
+        order: orderCurrent,
+        items: items.map((it, idx) => ({
+          id: pickId(it, idx),
+          stem: String(pickStem(it) ?? ''),
+          A: String(pickTextA(it) ?? ''),
+          B: String(pickTextB(it) ?? ''),
+        })),
+        answers,
+      };
+
+      // 儲存：主用 store，失敗則寫入 fallback
+      let saved = false;
+      try {
+        store.saveResult(session);
+        saved = true;
+      } catch (err) {
+        console.warn('[basic submit] store.saveResult 失敗，改寫入 fallback：', err);
+        try {
+          const k = '__results_fallback';
+          const list = JSON.parse(localStorage.getItem(k) || '[]');
+          list.unshift({ id: session.id, session, savedAt: util.nowISO() });
+          localStorage.setItem(k, JSON.stringify(list.slice(0, 20)));
+          saved = true;
+        } catch (e2) {
+          console.error('[basic submit] fallback 也失敗：', e2);
+        }
+      }
+
+      console.debug('[basic submit] navigate, saved =', saved, 'id =', session.id);
+      location.assign(`result.html?id=${encodeURIComponent(session.id)}`);
+    } catch (fatal) {
+      console.error('[basic submit] fatal error:', fatal);
+      alert('送出發生錯誤：' + (fatal?.message || fatal));
     }
-
-    // 依洗牌後順序收集答案
-    const answers = [];
-    const orderCurrent = [];
-    items.forEach((it, idx) => {
-      const id = pickId(it, idx);
-      const name = `q_${id}`;
-      const val = Number(answerMap.get(name));
-      answers.push(val);
-      orderCurrent.push(id);
-    });
-
-    const session = {
-      id: util.uuid(),
-      kind: 'basic',
-      createdAt: util.nowISO(),
-      version: 1,
-      meta: {
-        total,
-        scale: 'A/B 5-point (-2..2)',
-      },
-      originalOrder,        // 載入時未洗牌的 id 序
-      order: orderCurrent,  // 洗牌後作答序
-      items: items.map((it, idx) => ({
-        id: pickId(it, idx),
-        stem: String(pickStem(it) ?? ''),
-        A: String(pickTextA(it) ?? ''),
-        B: String(pickTextB(it) ?? ''),
-      })),
-      answers,              // 與 order 對應
-    };
-
-    store.saveResult(session);
-    location.href = `result.html?id=${encodeURIComponent(session.id)}`;
   });
 
   // 進度
@@ -254,4 +274,5 @@ export async function initRenderBasic(rootId = 'app') {
       .replaceAll('>', '&gt;');
   }
 }
-// ★ 不自啟：檔尾不要呼叫 initRenderBasic()
+
+// ★ 不自啟（把你原本檔尾的自動啟動區塊拿掉）
