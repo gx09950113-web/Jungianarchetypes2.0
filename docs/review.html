@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>歷次紀錄｜榮格八維自測</title>
+
+  <!-- 共用樣式 -->
+  <link rel="stylesheet" href="./assets/css/style.css" />
+
+  <!-- 頁面入口（會呼叫 ui/render-review.js 裡的初始化） -->
+  <script type="module" src="./assets/js/app-review.js" defer></script>
+</head>
+<body>
+  <noscript>本頁需要啟用 JavaScript 才能載入紀錄。</noscript>
+
+  <header class="container">
+    <h1 class="title">歷次測驗紀錄</h1>
+    <p class="muted small">
+      這裡僅列出儲存在你的瀏覽器（<code>localStorage</code>）中的紀錄。
+    </p>
+  </header>
+
+  <main class="container stack-lg" data-testid="review-root">
+    <!-- 操作列 -->
+    <section class="card actions" aria-label="操作">
+      <div class="btn-row">
+        <a class="btn btn-ghost" href="./index.html">回首頁</a>
+        <button id="btn-clear-all" class="btn danger" type="button" data-testid="btn-clear-all">
+          刪除全部紀錄
+        </button>
+      </div>
+      <p id="meta" class="muted small" data-testid="review-meta">
+        共 <strong id="result-count">0</strong> 筆。
+      </p>
+    </section>
+
+    <!-- 篩選（可選，留空容器；由 JS 決定是否啟用） -->
+    <section class="card" aria-label="篩選" hidden id="filter-section">
+      <form id="filter-form" class="filter-form">
+        <label>
+          關鍵字：
+          <input id="q" name="q" type="search" placeholder="輸入關鍵字（如 MBTI、時間）" />
+        </label>
+      </form>
+    </section>
+
+    <!-- 列表 -->
+    <section class="card">
+      <h2 class="section-title">紀錄列表</h2>
+
+      <!-- 空狀態 -->
+      <div id="empty" class="empty muted" data-testid="empty-state" hidden>
+        尚無任何紀錄。請先完成一次測驗。
+      </div>
+
+      <!-- 清單 -->
+      <ul id="result-list" class="result-list" data-testid="result-list" aria-live="polite">
+        <!-- 由 render-review.js 動態插入 li 項目 -->
+      </ul>
+    </section>
+  </main>
+
+  <!-- 單筆刪除確認 -->
+  <dialog id="confirm-dialog" data-testid="confirm-dialog">
+    <form method="dialog" class="stack">
+      <p>確定要刪除此筆紀錄嗎？此操作無法復原。</p>
+      <div class="btn-row">
+        <button value="cancel" class="btn btn-ghost">取消</button>
+        <button value="ok" class="btn danger">確認刪除</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 範本（供 JS 複製填入；如不需可忽略，由 JS 直接 createElement 也可） -->
+  <template id="tpl-item">
+    <li class="result-item">
+      <div class="result-main">
+        <div class="result-title">
+          <span class="badge mbti" data-k="mbti">—</span>
+          <a class="result-link" data-k="link" href="#">查看</a>
+        </div>
+        <div class="result-sub muted small">
+          <span data-k="time">—</span>
+          <span>｜</span>
+          <span data-k="summary">—</span>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-ghost" data-action="open">查看</button>
+        <button class="btn danger" data-action="delete">刪除</button>
+      </div>
+    </li>
+  </template>
+</body>
+</html>
