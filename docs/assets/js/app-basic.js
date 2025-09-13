@@ -6,19 +6,18 @@ import { initRenderBasic } from './ui/render-basic.js';
 let __booted = false;
 
 function showError(err) {
+  // 只記錄到 Console，不再插入畫面上的提示框
   console.error('[app-basic] init failed:', err);
-  const root = document.getElementById('app') || document.body;
-  const box = document.createElement('div');
-  box.style.cssText = 'margin:1rem;padding:1rem;border:1px solid #e11d48;background:#fff1f2;color:#9f1239';
-  box.textContent = 'Basic 渲染失敗：' + (err?.message || err);
-  root.prepend(box);
 }
 
 async function main() {
   if (__booted) return;
   __booted = true;
+
+  const initOptions = {}; // 若未來要傳參數可放這裡
+
   try {
-    await initRenderBasic('app');
+    await initRenderBasic('app'); // <-- 呼叫 initRenderBasic
   } catch (err) {
     showError(err);
   }
