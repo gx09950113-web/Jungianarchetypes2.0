@@ -3,6 +3,7 @@
 
 import * as util from '../lib/util.js';
 import * as loader from '../lib/loader.js';
+import * as router from '../lib/router.js';
 import * as store from '../lib/store.js';
 
 let __startedAdvanced = false;
@@ -10,9 +11,9 @@ let __startedAdvanced = false;
 /**
  * 初始化進階測驗頁
  * @param {string} rootId - 掛載容器 id（預設 'app'）
- * @param {'A'|'B'|'C'} set - 題組（預設 'A'）
+ * @param {'A'|'B'|'C'|null} setFromApp - 題組；若未傳入則回退用 URL 讀取
  */
-export async function initRenderAdvanced(rootId = 'app', set = 'A') {
+export async function initRenderAdvanced(rootId = 'app', setFromApp = null) {
   if (__startedAdvanced) return; // 防重複
   __startedAdvanced = true;
 
@@ -25,20 +26,22 @@ export async function initRenderAdvanced(rootId = 'app', set = 'A') {
   }
   root.innerHTML = '';
 
-  const SET = ['A', 'B', 'C'].includes(String(set).toUpperCase())
-    ? String(set).toUpperCase()
-    : 'A';
+  // 題組
+  const q = router.getQuery?.() ?? Object.fromEntries(new URLSearchParams(location.search));
+  const SET = (setFromApp ? String(setFromApp) : String(q.set || q.group || 'A')).toUpperCase();
+  const SET_SAFE = ['A', 'B', 'C'].includes(SET) ? SET : 'A';
+  if (SET !== SET_SAFE) console.warn('[advanced] unknown set, fallback to A:', SET);
 
   // 標題
   const title = document.createElement('h1');
-  title.textContent = `進階題組 ${SET}`;
+  title.textContent = `進階題組 ${SET_SAFE}`;
   root.appendChild(title);
 
   // 題庫
-  let items = await loader.loadItemsAdv(SET);
+  let items = await loader.loadItemsAdv(SET_SAFE);
   if (!Array.isArray(items) || items.length === 0) {
     const p = document.createElement('p');
-    p.textContent = `找不到進階題庫資料（items_public_adv_${SET}.json）。`;
+    p.textContent = `找不到進階題庫資料（items_public_adv_${SET_SAFE}.json）。`;
     root.appendChild(p);
     return;
   }
@@ -109,28 +112,34 @@ export async function initRenderAdvanced(rootId = 'app', set = 'A') {
     const textB = String(pickTextB(it) ?? '').trim();
 
     const block = document.createElement('section');
+    block.className = 'q-block';
     block.style.cssText = 'border:1px solid var(--line,#ddd);border-radius:8px;padding:12px;margin:12px 0';
 
     const head = document.createElement('div');
+    head.className = 'q-head';
     head.style.cssText = 'font-weight:600;margin-bottom:8px';
     head.textContent = `第 ${idx + 1} 題`;
     block.appendChild(head);
 
     if (stem) {
       const stemEl = document.createElement('div');
+      stemEl.className = 'q-stem';
       stemEl.style.cssText = 'margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;';
       stemEl.textContent = stem;
       block.appendChild(stemEl);
     }
 
     const abRow = document.createElement('div');
+    abRow.className = 'q-ab-row';
     abRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
 
     const aBox = document.createElement('div');
+    aBox.className = 'q-a';
     aBox.innerHTML = `<div style="font-size:12px;opacity:.75;">A</div><div>${escapeHTML(textA)}</div>`;
     aBox.style.cssText = 'border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
 
     const bBox = document.createElement('div');
+    bBox.className = 'q-b';
     bBox.innerHTML = `<div style="font-size:12px;opacity:.75;">B</div><div>${escapeHTML(textB)}</div>`;
     bBox.style.cssText = 'border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
 
@@ -139,11 +148,13 @@ export async function initRenderAdvanced(rootId = 'app', set = 'A') {
     block.appendChild(abRow);
 
     const scaleRow = document.createElement('div');
+    scaleRow.className = 'q-scale';
     scaleRow.style.cssText = `display:grid;grid-template-columns:repeat(${SCALE.length},1fr);gap:8px;margin-top:10px`;
 
     const groupName = `q_${qId}`;
     SCALE.forEach((opt) => {
       const cell = document.createElement('label');
+      cell.className = 'scale-cell';
       cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border:1px solid var(--line,#ddd);border-radius:6px;cursor:pointer';
 
       const radio = document.createElement('input');
@@ -190,51 +201,70 @@ export async function initRenderAdvanced(rootId = 'app', set = 'A') {
   actions.appendChild(btnReset);
   root.appendChild(actions);
 
-  // 送出
+  // 送出（強化版）
   form.addEventListener('submit', (e) => {
     e.preventDefault();
 
-    const total = items.length;
-    const names = items.map((it, idx) => `q_${pickId(it, idx)}`);
-    const missing = names.filter((n) => !answerMap.has(n));
-    if (missing.length > 0) {
-      alert(`尚有 ${missing.length} 題未作答，請完成所有題目。`);
-      return;
+    try {
+      const total = items.length;
+      const names = items.map((it, idx) => `q_${pickId(it, idx)}`);
+      const missing = names.filter((n) => !answerMap.has(n));
+      if (missing.length > 0) {
+        alert(`尚有 ${missing.length} 題未作答，請完成所有題目。`);
+        return;
+      }
+
+      const answers = [];
+      const orderCurrent = [];
+      items.forEach((it, idx) => {
+        const id = pickId(it, idx);
+        const name = `q_${id}`;
+        const val = Number(answerMap.get(name));
+        answers.push(val);
+        orderCurrent.push(id);
+      });
+
+      const session = {
+        id: util.uuid(),
+        kind: 'advanced',
+        set: SET_SAFE,
+        createdAt: util.nowISO(),
+        version: 1,
+        meta: { total, scale: 'A/B 5-point (-2..2)' },
+        originalOrder,
+        order: orderCurrent,
+        items: items.map((it, idx) => ({
+          id: pickId(it, idx),
+          stem: String(pickStem(it) ?? ''),
+          A: String(pickTextA(it) ?? ''),
+          B: String(pickTextB(it) ?? ''),
+        })),
+        answers,
+      };
+
+      let saved = false;
+      try {
+        store.saveResult(session);
+        saved = true;
+      } catch (err) {
+        console.warn('[advanced submit] store.saveResult 失敗，改寫入 fallback：', err);
+        try {
+          const k = '__results_fallback';
+          const list = JSON.parse(localStorage.getItem(k) || '[]');
+          list.unshift({ id: session.id, session, savedAt: util.nowISO() });
+          localStorage.setItem(k, JSON.stringify(list.slice(0, 20)));
+          saved = true;
+        } catch (e2) {
+          console.error('[advanced submit] fallback 也失敗：', e2);
+        }
+      }
+
+      console.debug('[advanced submit] navigate, set =', SET_SAFE, 'saved =', saved, 'id =', session.id);
+      location.assign(`result.html?id=${encodeURIComponent(session.id)}`);
+    } catch (fatal) {
+      console.error('[advanced submit] fatal error:', fatal);
+      alert('送出發生錯誤：' + (fatal?.message || fatal));
     }
-
-    const answers = [];
-    const orderCurrent = [];
-    items.forEach((it, idx) => {
-      const id = pickId(it, idx);
-      const name = `q_${id}`;
-      const val = Number(answerMap.get(name));
-      answers.push(val);
-      orderCurrent.push(id);
-    });
-
-    const session = {
-      id: util.uuid(),
-      kind: 'advanced',
-      set: SET,
-      createdAt: util.nowISO(),
-      version: 1,
-      meta: {
-        total,
-        scale: 'A/B 5-point (-2..2)',
-      },
-      originalOrder,
-      order: orderCurrent,
-      items: items.map((it, idx) => ({
-        id: pickId(it, idx),
-        stem: String(pickStem(it) ?? ''),
-        A: String(pickTextA(it) ?? ''),
-        B: String(pickTextB(it) ?? ''),
-      })),
-      answers,
-    };
-
-    store.saveResult(session);
-    location.href = `result.html?id=${encodeURIComponent(session.id)}`;
   });
 
   // 進度
@@ -253,4 +283,5 @@ export async function initRenderAdvanced(rootId = 'app', set = 'A') {
       .replaceAll('>', '&gt;');
   }
 }
-// ★ 不自啟：檔尾不要呼叫 initRenderAdvanced()
+
+// ★ 不自啟（把你原本檔尾的自動啟動區塊拿掉）
