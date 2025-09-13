@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>測驗結果｜榮格八維自測</title>
+
+  <!-- 共用樣式 -->
+  <link rel="stylesheet" href="./assets/css/style.css" />
+
+  <!-- 本地 Chart.js（請確保檔案位於 docs/assets/js/vendor/chart.umd.js） -->
+  <script src="./assets/js/vendor/chart.umd.js" defer></script>
+
+  <!-- 頁面入口（會呼叫 ui/render-result.js 裡的初始化） -->
+  <script type="module" src="./assets/js/app-result.js" defer></script>
+</head>
+<body>
+  <noscript>本頁需要啟用 JavaScript 才能顯示結果。</noscript>
+
+  <header class="container">
+    <h1 class="title">測驗結果</h1>
+    <p id="result-meta" class="muted" data-testid="result-meta">讀取中…（請稍候）</p>
+  </header>
+
+  <main class="container stack-lg">
+    <!-- 雷達圖 -->
+    <section class="card">
+      <h2 class="section-title">八維雷達圖</h2>
+      <div class="chart-wrap">
+        <canvas id="radar-canvas" width="640" height="480" aria-label="八維雷達圖" role="img"></canvas>
+      </div>
+    </section>
+
+    <!-- 四向度條形圖／指標 -->
+    <section class="card">
+      <h2 class="section-title">四向度概覽</h2>
+      <ul id="dims-list" class="dims-list" data-testid="dims-list"></ul>
+    </section>
+
+    <!-- MBTI 區塊 -->
+    <section class="card">
+      <h2 class="section-title">MBTI 推論</h2>
+      <div id="mbti-box" class="mbti-box" data-testid="mbti-box"></div>
+    </section>
+
+    <!-- 動作 -->
+    <section class="card actions" aria-label="操作">
+      <div class="btn-row">
+        <button id="btn-export-json" class="btn" type="button" data-testid="btn-export-json">匯出 JSON</button>
+        <a id="btn-home" class="btn btn-ghost" href="./index.html" data-testid="btn-home">回首頁</a>
+        <a id="btn-review" class="btn btn-ghost" href="./review.html" data-testid="btn-review">歷次紀錄</a>
+      </div>
+      <p id="hint" class="muted small" data-testid="hint">
+        若本頁顯示「讀取中」卡住，請確認網址列是否帶有 <code>?id=...</code>。
+      </p>
+    </section>
+  </main>
+</body>
+</html>
