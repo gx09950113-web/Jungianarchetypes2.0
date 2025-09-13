@@ -6,12 +6,7 @@
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#2563eb" />
   <title>基礎 32 題｜榮格八維自測</title>
-
-  <!-- 共用樣式 -->
   <link rel="stylesheet" href="./assets/css/style.css" />
-
-  <!-- 頁面入口（會呼叫 ui/render-basic.js 裡的初始化） -->
-  <script type="module" src="./assets/js/app-basic.js" defer></script>
 </head>
 <body>
   <noscript>本頁需要啟用 JavaScript 才能作答。</noscript>
@@ -22,6 +17,11 @@
   </header>
 
   <main class="container stack-lg" data-testid="basic-root">
+    <!-- 系統訊息（載入／錯誤） -->
+    <section class="card" id="sysmsg" hidden>
+      <p class="muted" id="sysmsg-text">載入中…</p>
+    </section>
+
     <!-- 進度 -->
     <section class="card">
       <div class="progress-row">
@@ -37,22 +37,13 @@
     <!-- 題目 -->
     <section class="card">
       <h2 class="section-title">題目</h2>
-      <div id="question" class="question" data-testid="question" aria-live="polite">
-        <!-- 由 render-basic.js 動態填入題幹文字 -->
-      </div>
+      <div id="question" class="question" data-testid="question" aria-live="polite"></div>
     </section>
 
     <!-- Likert 量表 -->
     <section class="card">
       <h2 class="section-title">你的選擇</h2>
       <form id="form" class="likert-form" data-testid="likert-form">
-        <!-- 由 render-basic.js 動態產生 5 或 7 點量表
-             建議結構（供參考；實際由 JS 產生）
-             <fieldset role="radiogroup" aria-label="同意程度">
-               <label><input type="radio" name="ans" value="1"> 非常不同意</label>
-               ...
-             </fieldset>
-        -->
         <div id="likert-wrap" class="likert-wrap"></div>
       </form>
     </section>
@@ -78,5 +69,8 @@
       </form>
     </dialog>
   </main>
+
+  <!-- 把入口腳本放在最底，避免任何 DOM 時序問題 -->
+  <script type="module" src="./assets/js/app-basic.js"></script>
 </body>
 </html>
