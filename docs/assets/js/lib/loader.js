@@ -1,20 +1,12 @@
 // /docs/assets/js/lib/loader.js
-// 強韌版資料載入器（固定使用 *_adv_A|B|C 檔名格式）
-// - 題庫：items_public_adv_A/B/C.json、items_public_32.json
-// - 權重：weights_adv_A/B/C.json、weights_32.json
-// - 自動探測 /docs/data 路徑
-// - 統一把 title/desc/description/content 對映為 item.text
+// Ultra-robust 版：瘋狂相容鍵名 + 多路徑探測 + 可視化 debug overlay（?debug=0 可關）
 
 import { assert } from './util.js';
 
-// ----------------------------- 路徑探測 ---------------------------------------
 const CANDIDATE_BASES = [
-  './data',     // 通常 /docs/*.html → ./data
-  '../data',    // 萬一相對路徑在某些情況被誤判
-  '/data',      // 少數部署情境
+  './data', '../data', '/data'
 ];
 
-// 若是 GitHub Pages 子路徑（https://user.github.io/repo/docs/...），把 /repo/data 與 /repo/docs/data 加進候選
 (function appendGhPagesBase() {
   try {
     const u = new URL(document.baseURI);
@@ -26,16 +18,39 @@ const CANDIDATE_BASES = [
       if (!CANDIDATE_BASES.includes(withRepo)) CANDIDATE_BASES.push(withRepo);
       if (!CANDIDATE_BASES.includes(withRepoDocs)) CANDIDATE_BASES.push(withRepoDocs);
     }
-  } catch (_) {}
+  } catch {}
 })();
+
+const DBG = (() => {
+  const q = new URLSearchParams(location.search);
+  return q.get('debug') !== '0';
+})();
+
+function showOverlay(lines) {
+  if (!DBG) return;
+  const box = document.createElement('div');
+  Object.assign(box.style, {
+    position: 'fixed', right: '8px', bottom: '8px', zIndex: 99999,
+    maxWidth: '92vw', maxHeight: '40vh', overflow: 'auto',
+    padding: '10px 12px', background: 'rgba(0,0,0,.8)', color: '#fff',
+    font: '12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,.35)', whiteSpace: 'pre-wrap'
+  });
+  box.textContent = lines.join('\n');
+  document.body.appendChild(box);
+}
 
 async function tryFetchJSON(url) {
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} for ${url}\n${text.slice(0, 200)}`);
+    throw new Error(`HTTP ${res.status} for ${url}\n${text.slice(0,200)}`);
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch (e) {
+    throw new Error(`JSON parse error for ${url}: ${e.message}`);
+  }
 }
 
 async function fetchFromCandidates(relPath) {
@@ -51,71 +66,95 @@ async function fetchFromCandidates(relPath) {
   }
   const msg = [
     `[loader] 無法載入 ${relPath}`,
-    `已嘗試：`,
-    ...CANDIDATE_BASES.map(b => `  • ${b}/${relPath}`),
-    `詳細錯誤：`,
-    ...errors,
+    `已嘗試：`, ...CANDIDATE_BASES.map(b => `  • ${b}/${relPath}`),
+    `詳細錯誤：`, ...errors,
   ].join('\n');
   throw new Error(msg);
 }
 
-// ----------------------------- 對外 API --------------------------------------
-// 基礎題庫（32 題）
+// ============== 公開 API（固定 *_adv_A|B|C 命名） ============================
 export async function loadItemsBasic() {
   const { json, urlTried } = await fetchFromCandidates('items_public_32.json');
-  const items = normalizeItems(json);
-  assert(Array.isArray(items) && items.length > 0, `[loader] 基礎題庫為空（來源：${urlTried}）`);
+  const items = normalizeItemsContainer(json);
+  assert(items.length > 0, `[loader] 基礎題庫為空（來源：${urlTried}）`);
+  showOverlay([
+    '[items_basic]', `url: ${urlTried}`, `count: ${items.length}`,
+    `first.text: ${truncate(items[0]?.text)}`
+  ]);
   return items;
 }
 
-// 進階題庫（固定 *_adv_A|B|C）
 export async function loadItemsAdv(set = 'A') {
   const S = String(set).toUpperCase();
-  const fname = `items_public_adv_${S}.json`; // <-- 依你的命名
+  const fname = `items_public_adv_${S}.json`;
   const { json, urlTried } = await fetchFromCandidates(fname);
-  const items = normalizeItems(json);
-  assert(Array.isArray(items) && items.length > 0, `[loader] 進階題庫為空（${S}，來源：${urlTried}）`);
+  const items = normalizeItemsContainer(json);
+  assert(items.length > 0, `[loader] 進階題庫為空（${S}，來源：${urlTried}）`);
+  showOverlay([
+    `[items_adv_${S}]`, `url: ${urlTried}`, `count: ${items.length}`,
+    `first.text: ${truncate(items[0]?.text)}`
+  ]);
   return items;
 }
 
-// 基礎權重
 export async function loadWeightsBasic() {
   const { json, urlTried } = await fetchFromCandidates('weights/weights_32.json');
-  assert(json, `[loader] 基礎權重讀取失敗（來源：${urlTried}）`);
+  assert(!!json, `[loader] 基礎權重讀取失敗（來源：${urlTried}）`);
   return json;
 }
 
-// 進階權重（固定 *_adv_A|B|C）
 export async function loadWeightsAdv(set = 'A') {
   const S = String(set).toUpperCase();
-  const fname = `weights/weights_adv_${S}.json`; // <-- 依你的命名
+  const fname = `weights/weights_adv_${S}.json`;
   const { json, urlTried } = await fetchFromCandidates(fname);
-  assert(json, `[loader] 進階權重讀取失敗（${S}，來源：${urlTried}）`);
+  assert(!!json, `[loader] 進階權重讀取失敗（${S}，來源：${urlTried}）`);
   return json;
 }
 
-// 對應表（functions / types）
 export async function loadMappingFuncs() {
   const { json, urlTried } = await fetchFromCandidates('mapping/funcs.json');
-  assert(json, `[loader] funcs.json 讀取失敗（來源：${urlTried}）`);
+  assert(!!json, `[loader] funcs.json 讀取失敗（來源：${urlTried}）`);
   return json;
 }
 
 export async function loadMappingTypes() {
   const { json, urlTried } = await fetchFromCandidates('mapping/types.json');
-  assert(json, `[loader] types.json 讀取失敗（來源：${urlTried}）`);
+  assert(!!json, `[loader] types.json 讀取失敗（來源：${urlTried}）`);
   return json;
 }
 
-// ----------------------------- 結構轉換 --------------------------------------
-// UI 端預期每題至少要有 { id, text }；這裡盡量做鍵名相容。
-function normalizeItems(raw) {
-  if (!raw) return [];
-  const arr = Array.isArray(raw) ? raw : (Array.isArray(raw.items) ? raw.items : []);
+// ============== 相容處理 =====================================================
+// 允許容器鍵：items / questions / list / data / payload / results
+function normalizeItemsContainer(raw) {
+  const candidates = [];
+  if (Array.isArray(raw)) candidates.push(raw);
+  if (raw && typeof raw === 'object') {
+    for (const key of ['items', 'questions', 'list', 'data', 'payload', 'results']) {
+      if (Array.isArray(raw[key])) candidates.push(raw[key]);
+    }
+  }
+  const arr = candidates.find(a => a.length) || [];
+  return normalizeItems(arr);
+}
+
+// 把各種鍵名對映成 { id, text }；保留 options/choices 如有
+function normalizeItems(arr) {
   return arr.map((it, i) => {
-    const id = it.id ?? it.qid ?? `q_${i + 1}`;
-    const text = it.text ?? it.title ?? it.desc ?? it.description ?? it.content ?? '';
-    const options = it.options ?? it.choices ?? null; // 若你的題目自帶選項就保留
-    return { ...it, id, text, options };
-  }).filter(it => String(it.text || '').trim().length > 0);
+    const id = it.id ?? it.qid ?? it.key ?? `q_${i + 1}`;
+    const text = coalesce(
+      it.text, it.title, it.desc, it.description, it.content, it.label, it.prompt, it.question, it.name, it.q
+    );
+    const options = it.options ?? it.choices ?? null;
+    return { ...it, id, text: String(text ?? '').trim(), options };
+  }).filter(it => it.text && it.text.length > 0);
+}
+
+function coalesce(...vals) {
+  for (const v of vals) if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+  return '';
+}
+
+function truncate(s, n = 80) {
+  s = String(s ?? '');
+  return s.length > n ? s.slice(0, n) + '…' : s;
 }
