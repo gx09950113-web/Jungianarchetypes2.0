@@ -1,30 +1,21 @@
 // /docs/assets/js/lib/loader.js
-// Ultra-robust 版：瘋狂相容鍵名 + 多路徑探測 + 可視化 debug overlay（?debug=0 可關）
-
 import { assert } from './util.js';
 
-const CANDIDATE_BASES = [
-  './data', '../data', '/data'
-];
-
+const CANDIDATE_BASES = ['./data', '../data', '/data'];
 (function appendGhPagesBase() {
   try {
     const u = new URL(document.baseURI);
     const parts = u.pathname.split('/').filter(Boolean);
     if (parts.length >= 1) {
       const repo = `/${parts[0]}`;
-      const withRepo = `${repo}/data`;
-      const withRepoDocs = `${repo}/docs/data`;
-      if (!CANDIDATE_BASES.includes(withRepo)) CANDIDATE_BASES.push(withRepo);
-      if (!CANDIDATE_BASES.includes(withRepoDocs)) CANDIDATE_BASES.push(withRepoDocs);
+      for (const p of [`${repo}/data`, `${repo}/docs/data`]) {
+        if (!CANDIDATE_BASES.includes(p)) CANDIDATE_BASES.push(p);
+      }
     }
   } catch {}
 })();
 
-const DBG = (() => {
-  const q = new URLSearchParams(location.search);
-  return q.get('debug') !== '0';
-})();
+const DBG = (() => new URLSearchParams(location.search).get('debug') !== '0')();
 
 function showOverlay(lines) {
   if (!DBG) return;
@@ -42,15 +33,9 @@ function showOverlay(lines) {
 
 async function tryFetchJSON(url) {
   const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} for ${url}\n${text.slice(0,200)}`);
-  }
-  try {
-    return await res.json();
-  } catch (e) {
-    throw new Error(`JSON parse error for ${url}: ${e.message}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  try { return await res.json(); }
+  catch (e) { throw new Error(`JSON parse error for ${url}: ${e.message}`); }
 }
 
 async function fetchFromCandidates(relPath) {
@@ -60,71 +45,51 @@ async function fetchFromCandidates(relPath) {
     try {
       const json = await tryFetchJSON(url);
       return { json, urlTried: url };
-    } catch (err) {
-      errors.push(`- ${err.message}`);
-    }
+    } catch (err) { errors.push(`- ${err.message}`); }
   }
-  const msg = [
-    `[loader] 無法載入 ${relPath}`,
-    `已嘗試：`, ...CANDIDATE_BASES.map(b => `  • ${b}/${relPath}`),
-    `詳細錯誤：`, ...errors,
-  ].join('\n');
-  throw new Error(msg);
+  throw new Error(
+    [`[loader] 無法載入 ${relPath}`, `已嘗試：`,
+     ...CANDIDATE_BASES.map(b => `  • ${b}/${relPath}`), `詳細錯誤：`, ...errors].join('\n')
+  );
 }
 
-// ============== 公開 API（固定 *_adv_A|B|C 命名） ============================
+// ===== 公開 API（檔名：items_public_32.json / *_adv_A|B|C, weights 同名規則） =====
 export async function loadItemsBasic() {
   const { json, urlTried } = await fetchFromCandidates('items_public_32.json');
   const items = normalizeItemsContainer(json);
   assert(items.length > 0, `[loader] 基礎題庫為空（來源：${urlTried}）`);
-  showOverlay([
-    '[items_basic]', `url: ${urlTried}`, `count: ${items.length}`,
-    `first.text: ${truncate(items[0]?.text)}`
-  ]);
+  showOverlay(['[items_basic]', `url: ${urlTried}`, `count: ${items.length}`, `first.text: ${truncate(items[0]?.text)}`]);
   return items;
 }
 
 export async function loadItemsAdv(set = 'A') {
   const S = String(set).toUpperCase();
-  const fname = `items_public_adv_${S}.json`;
-  const { json, urlTried } = await fetchFromCandidates(fname);
+  const { json, urlTried } = await fetchFromCandidates(`items_public_adv_${S}.json`);
   const items = normalizeItemsContainer(json);
   assert(items.length > 0, `[loader] 進階題庫為空（${S}，來源：${urlTried}）`);
-  showOverlay([
-    `[items_adv_${S}]`, `url: ${urlTried}`, `count: ${items.length}`,
-    `first.text: ${truncate(items[0]?.text)}`
-  ]);
+  showOverlay([`[items_adv_${S}]`, `url: ${urlTried}`, `count: ${items.length}`, `first.text: ${truncate(items[0]?.text)}`]);
   return items;
 }
 
 export async function loadWeightsBasic() {
-  const { json, urlTried } = await fetchFromCandidates('weights/weights_32.json');
-  assert(!!json, `[loader] 基礎權重讀取失敗（來源：${urlTried}）`);
+  const { json } = await fetchFromCandidates('weights/weights_32.json');
   return json;
 }
-
 export async function loadWeightsAdv(set = 'A') {
   const S = String(set).toUpperCase();
-  const fname = `weights/weights_adv_${S}.json`;
-  const { json, urlTried } = await fetchFromCandidates(fname);
-  assert(!!json, `[loader] 進階權重讀取失敗（${S}，來源：${urlTried}）`);
+  const { json } = await fetchFromCandidates(`weights/weights_adv_${S}.json`);
   return json;
 }
-
 export async function loadMappingFuncs() {
-  const { json, urlTried } = await fetchFromCandidates('mapping/funcs.json');
-  assert(!!json, `[loader] funcs.json 讀取失敗（來源：${urlTried}）`);
+  const { json } = await fetchFromCandidates('mapping/funcs.json');
   return json;
 }
-
 export async function loadMappingTypes() {
-  const { json, urlTried } = await fetchFromCandidates('mapping/types.json');
-  assert(!!json, `[loader] types.json 讀取失敗（來源：${urlTried}）`);
+  const { json } = await fetchFromCandidates('mapping/types.json');
   return json;
 }
 
-// ============== 相容處理 =====================================================
-// 允許容器鍵：items / questions / list / data / payload / results
+// ===== 結構相容 =====
 function normalizeItemsContainer(raw) {
   const candidates = [];
   if (Array.isArray(raw)) candidates.push(raw);
@@ -137,12 +102,13 @@ function normalizeItemsContainer(raw) {
   return normalizeItems(arr);
 }
 
-// 把各種鍵名對映成 { id, text }；保留 options/choices 如有
 function normalizeItems(arr) {
   return arr.map((it, i) => {
     const id = it.id ?? it.qid ?? it.key ?? `q_${i + 1}`;
     const text = coalesce(
-      it.text, it.title, it.desc, it.description, it.content, it.label, it.prompt, it.question, it.name, it.q
+      it.text, it.stem,         // <-- 加入 stem
+      it.title, it.desc, it.description, it.content,
+      it.label, it.prompt, it.question, it.name, it.q
     );
     const options = it.options ?? it.choices ?? null;
     return { ...it, id, text: String(text ?? '').trim(), options };
@@ -153,7 +119,6 @@ function coalesce(...vals) {
   for (const v of vals) if (v !== undefined && v !== null && String(v).trim() !== '') return v;
   return '';
 }
-
 function truncate(s, n = 80) {
   s = String(s ?? '');
   return s.length > n ? s.slice(0, n) + '…' : s;
