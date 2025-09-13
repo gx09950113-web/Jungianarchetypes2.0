@@ -6,9 +6,9 @@ import * as router from '../lib/router.js';
 import * as store from '../lib/store.js';
 
 /**
- * 進階題組渲染器
- * - 透過 query 讀取 set=A|B|C（容忍 ?set=a / ?a 等）
- * - 可以在 console 執行：await initRenderAdvanced()
+ * 初始化進階題（A/B/C）：
+ * - 由 URL ?set=A|B|C 指定，預設 A
+ * - 題目結構相容 { id, stem, options:[A,B] }
  */
 export async function initRenderAdvanced(rootId = 'app') {
   // 容器
@@ -20,58 +20,69 @@ export async function initRenderAdvanced(rootId = 'app') {
   }
   root.innerHTML = '';
 
-  // 解析 set
-  const q = router.getQuery?.() ?? {};
-  const setFromQuery = normalizeSet(q.set ?? (q.a ? 'A' : q.b ? 'B' : q.c ? 'C' : undefined));
-
-  // 如果沒有傳 set，提供一個簡單的選擇器
-  if (!setFromQuery) {
-    renderSetPicker(root);
-    return;
+  // 讀 set
+  const q = router.getQuery?.() ?? Object.fromEntries(new URLSearchParams(location.search));
+  const SET = String(q.set || q.group || 'A').toUpperCase();
+  if (!['A', 'B', 'C'].includes(SET)) {
+    console.warn('[advanced] unknown set, fallback to A:', SET);
   }
 
   // 標題
   const title = document.createElement('h1');
-  title.textContent = `進階題組（${setFromQuery}）`;
+  title.textContent = `進階題組 ${['A','B','C'].includes(SET) ? SET : 'A'}`;
   root.appendChild(title);
 
-  // 載入題庫
-  let items;
-  try {
-    items = await loader.loadItemsAdv(setFromQuery);
-  } catch (err) {
-    console.error(err);
-    items = null;
-  }
+  // 載入題庫（檔名 items_public_adv_A/B/C.json）
+  let items = await loader.loadItemsAdv(SET);
   if (!Array.isArray(items) || items.length === 0) {
     const p = document.createElement('p');
-    p.textContent = `找不到進階 ${setFromQuery} 題庫資料。`;
+    p.textContent = `找不到進階題庫資料（items_public_adv_${SET}.json）。`;
     root.appendChild(p);
     return;
   }
 
-  // 定義取欄位的方法：僅顯示 A/B 句子，避免露出主輔排序資訊
+  // 相容欄位：stem + options[0/1]
+  const pickStem = (it) =>
+    it.stem ?? it.prompt ?? it.title ?? it.desc ?? it.description ?? '';
+
   const pickTextA = (it) =>
+    (Array.isArray(it.options) ? it.options[0] : undefined) ??
     it.A ?? it.a ?? it.optionA ?? it.textA ?? it.left ?? it.l ?? it.statementA ?? '';
+
   const pickTextB = (it) =>
+    (Array.isArray(it.options) ? it.options[1] : undefined) ??
     it.B ?? it.b ?? it.optionB ?? it.textB ?? it.right ?? it.r ?? it.statementB ?? '';
+
   const pickId = (it, i) => it.id ?? it._id ?? it.key ?? `q${i + 1}`;
 
-  // 保留原始順序 id（尚未洗牌）
+  // 題序洗牌（保留原始順序 id 序列）
   const originalOrder = items.map((it, i) => pickId(it, i));
-
-  // 洗牌副本
   items = util.shuffle(items.slice());
+
+  // debug 區（可刪）
+  try {
+    const first = items[0];
+    const dbg = document.createElement('div');
+    dbg.style.cssText = 'margin:12px;padding:10px;border-radius:8px;background:#f1f5f9;color:#0f172a;font:12px/1.4 ui-monospace,monospace';
+    dbg.innerHTML = [
+      `<b>debug</b>（set=${['A','B','C'].includes(SET)?SET:'A'}）`,
+      '第一題 stem：' + escapeHTML(pickStem(first) || '(無)'),
+      'A：' + escapeHTML(String(pickTextA(first) ?? '')),
+      'B：' + escapeHTML(String(pickTextB(first) ?? '')),
+    ].join('<br/>');
+    root.appendChild(dbg);
+  } catch {}
 
   // 說明
   const hint = document.createElement('p');
   hint.innerHTML = `
-    本頁為進階題組 <strong>${setFromQuery}</strong>：請在每題 A 與 B 之間做傾向評分。<br/>
-    將不顯示任何「主／輔功能排序」或功能名稱。
+    請在每題的 A 與 B 之間做傾向選擇：<br/>
+    <strong>非常同意A、較同意A、中立、較同意B、非常同意B</strong><br/>
+    （僅顯示敘述，不顯示任何功能名稱）
   `;
   root.appendChild(hint);
 
-  // 進度列
+  // 進度
   const progressWrap = document.createElement('div');
   progressWrap.style.margin = '12px 0';
   const progressText = document.createElement('div');
@@ -96,7 +107,7 @@ export async function initRenderAdvanced(rootId = 'app') {
   form.noValidate = true;
   root.appendChild(form);
 
-  // Likert 選項（-2..2）
+  // Likert 刻度
   const SCALE = [
     { label: '非常同意A', value: -2 },
     { label: '較同意A', value: -1 },
@@ -105,12 +116,11 @@ export async function initRenderAdvanced(rootId = 'app') {
     { label: '非常同意B', value: 2 },
   ];
 
-  // 作答暫存
-  const answerMap = new Map(); // name -> value
-
-  // 題目區塊
+  // 產生題目
+  const answerMap = new Map();
   items.forEach((it, idx) => {
     const qId = pickId(it, idx);
+    const stem = String(pickStem(it) ?? '').trim();
     const textA = String(pickTextA(it) ?? '').trim();
     const textB = String(pickTextB(it) ?? '').trim();
 
@@ -121,7 +131,6 @@ export async function initRenderAdvanced(rootId = 'app') {
     block.style.padding = '12px';
     block.style.margin = '12px 0';
 
-    // 題號
     const head = document.createElement('div');
     head.className = 'q-head';
     head.style.fontWeight = '600';
@@ -129,7 +138,14 @@ export async function initRenderAdvanced(rootId = 'app') {
     head.textContent = `第 ${idx + 1} 題`;
     block.appendChild(head);
 
-    // AB 顯示（無任何主/輔提示）
+    if (stem) {
+      const stemEl = document.createElement('div');
+      stemEl.className = 'q-stem';
+      stemEl.style.cssText = 'margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;';
+      stemEl.textContent = stem;
+      block.appendChild(stemEl);
+    }
+
     const abRow = document.createElement('div');
     abRow.className = 'q-ab-row';
     abRow.style.display = 'grid';
@@ -154,7 +170,6 @@ export async function initRenderAdvanced(rootId = 'app') {
     abRow.appendChild(bBox);
     block.appendChild(abRow);
 
-    // Likert 列
     const scaleRow = document.createElement('div');
     scaleRow.className = 'q-scale';
     scaleRow.style.display = 'grid';
@@ -163,7 +178,6 @@ export async function initRenderAdvanced(rootId = 'app') {
     scaleRow.style.marginTop = '10px';
 
     const groupName = `q_${qId}`;
-
     SCALE.forEach((opt) => {
       const cell = document.createElement('label');
       cell.className = 'scale-cell';
@@ -180,7 +194,6 @@ export async function initRenderAdvanced(rootId = 'app') {
       radio.type = 'radio';
       radio.name = groupName;
       radio.value = String(opt.value);
-
       radio.addEventListener('change', () => {
         answerMap.set(groupName, Number(radio.value));
         updateProgress();
@@ -198,12 +211,11 @@ export async function initRenderAdvanced(rootId = 'app') {
     form.appendChild(block);
   });
 
-  // 操作列
+  // 動作列
   const actions = document.createElement('div');
   actions.style.display = 'flex';
   actions.style.gap = '12px';
   actions.style.margin = '16px 0';
-
   const btnSubmit = document.createElement('button');
   btnSubmit.type = 'submit';
   btnSubmit.textContent = '送出並查看結果';
@@ -230,7 +242,7 @@ export async function initRenderAdvanced(rootId = 'app') {
   actions.appendChild(btnReset);
   root.appendChild(actions);
 
-  // 提交處理
+  // 送出
   form.addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -246,16 +258,16 @@ export async function initRenderAdvanced(rootId = 'app') {
     const orderCurrent = [];
     items.forEach((it, idx) => {
       const id = pickId(it, idx);
-      const name = `q_${id}`;
-      const val = Number(answerMap.get(name));
+      const val = Number(answerMap.get(`q_${id}`));
       answers.push(val);
       orderCurrent.push(id);
     });
 
+    // 存 session
     const session = {
       id: util.uuid(),
       kind: 'advanced',
-      set: setFromQuery, // A/B/C
+      set: ['A','B','C'].includes(SET) ? SET : 'A',
       createdAt: util.nowISO(),
       version: 1,
       meta: {
@@ -266,6 +278,7 @@ export async function initRenderAdvanced(rootId = 'app') {
       order: orderCurrent,
       items: items.map((it, idx) => ({
         id: pickId(it, idx),
+        stem: String(pickStem(it) ?? ''),
         A: String(pickTextA(it) ?? ''),
         B: String(pickTextB(it) ?? ''),
       })),
@@ -279,7 +292,6 @@ export async function initRenderAdvanced(rootId = 'app') {
   // 初始進度
   updateProgress();
 
-  // ====== 區域工具 ======
   function updateProgress() {
     const answered = answerMap.size;
     const total = items.length;
@@ -294,61 +306,19 @@ export async function initRenderAdvanced(rootId = 'app') {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
   }
-
-  function normalizeSet(s) {
-    if (!s) return null;
-    const t = String(s).trim().toUpperCase();
-    if (t === 'A' || t === 'B' || t === 'C') return t;
-    return null;
-  }
-
-  function renderSetPicker(rootEl) {
-    const h = document.createElement('h1');
-    h.textContent = '選擇進階題組';
-    rootEl.appendChild(h);
-
-    const p = document.createElement('p');
-    p.innerHTML = `請選擇欲作答之題組（也可在網址列帶 <code>?set=A|B|C</code> 或 <code>?a</code>/<code>?b</code>/<code>?c</code>）。`;
-    rootEl.appendChild(p);
-
-    const box = document.createElement('div');
-    box.style.display = 'flex';
-    box.style.gap = '12px';
-    box.style.margin = '12px 0';
-
-    ['A', 'B', 'C'].forEach((s) => {
-      const btn = document.createElement('a');
-      btn.textContent = `進階 ${s}`;
-      btn.href = setQueryParam('set', s);
-      btn.style.display = 'inline-block';
-      btn.style.padding = '10px 14px';
-      btn.style.borderRadius = '8px';
-      btn.style.border = '1px solid var(--line, #ddd)';
-      btn.style.textDecoration = 'none';
-      btn.style.fontWeight = '600';
-      box.appendChild(btn);
-    });
-
-    rootEl.appendChild(box);
-  }
-
-  function setQueryParam(key, value) {
-    const url = new URL(location.href);
-    url.searchParams.set(key, value);
-    return url.toString();
-  }
 }
 
-// 自動初始化：僅在 advanced.html
+// 自動啟動（若檔名為 advanced.html）
 if (typeof window !== 'undefined') {
-  const boot = () => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      if (location.pathname.endsWith('advanced.html')) {
+        initRenderAdvanced().catch(console.error);
+      }
+    });
+  } else {
     if (location.pathname.endsWith('advanced.html')) {
       initRenderAdvanced().catch(console.error);
     }
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
   }
 }
