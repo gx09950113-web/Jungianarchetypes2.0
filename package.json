@@ -1,0 +1,13 @@
+{
+  "name": "jungianarchetypes",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18.17" },
+  "scripts": {
+    "test:basic": "node scripts/test.mjs basic",
+    "test:adv:A": "node scripts/test.mjs adv A",
+    "test:adv:B": "node scripts/test.mjs adv B",
+    "test:adv:C": "node scripts/test.mjs adv C",
+    "test:all": "node scripts/test.mjs all"
+  }
+}
