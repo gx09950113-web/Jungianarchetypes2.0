@@ -336,3 +336,18 @@ a:hover { text-decoration: underline; }
 
 /* ===== Tables ===== */
 table { width: 100%; border-collapse: collapse; font-size: 
+
+/* 讓提交按鈕絕對可點得到（避免被遮） */
+.actions,
+button[type="submit"] {
+  position: relative;
+  z-index: 9999;
+  pointer-events: auto !important;
+}
+
+/* 若有全螢幕遮罩，先讓它不攔截點擊（測試用） */
+*[class*="mask"],
+*[class*="overlay"],
+*[class*="modal"] {
+  pointer-events: none !important;
+}
