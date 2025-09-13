@@ -34,24 +34,45 @@ export async function initRenderBasic(rootId = 'app') {
     return;
   }
 
-  // 為了「不顯示功能名稱」，此渲染只讀 A/B 兩句題幹
-  // 嘗試多種常見欄位命名，以提升相容性
+  // ====== 這裡是關鍵修正：相容你的 JSON 結構 ======
+  // 你的 JSON: { id, stem, options: [A, B] }
+  const pickStem = (it) =>
+    it.stem ?? it.prompt ?? it.title ?? it.desc ?? it.description ?? '';
+
   const pickTextA = (it) =>
+    (Array.isArray(it.options) ? it.options[0] : undefined) ??
     it.A ?? it.a ?? it.optionA ?? it.textA ?? it.left ?? it.l ?? it.statementA ?? '';
+
   const pickTextB = (it) =>
+    (Array.isArray(it.options) ? it.options[1] : undefined) ??
     it.B ?? it.b ?? it.optionB ?? it.textB ?? it.right ?? it.r ?? it.statementB ?? '';
+
   const pickId = (it, i) => it.id ?? it._id ?? it.key ?? `q${i + 1}`;
 
   // 題序洗牌（同時保留原始 order 的 id）
   const originalOrder = items.map((it, i) => pickId(it, i));
   items = util.shuffle(items.slice());
 
+  // --- debug 區（可刪）----
+  try {
+    const first = items[0];
+    const dbg = document.createElement('div');
+    dbg.style.cssText = 'margin:12px;padding:10px;border-radius:8px;background:#f1f5f9;color:#0f172a;font:12px/1.4 ui-monospace,monospace';
+    dbg.innerHTML = [
+      '<b>debug</b>',
+      '第一題 stem：' + escapeHTML(pickStem(first) || '(無)'),
+      'A：' + escapeHTML(String(pickTextA(first) ?? '')),
+      'B：' + escapeHTML(String(pickTextB(first) ?? '')),
+    ].join('<br/>');
+    root.appendChild(dbg);
+  } catch {}
+
   // 說明
   const hint = document.createElement('p');
   hint.innerHTML = `
     請在每題的 A 與 B 之間做傾向選擇：<br/>
     <strong>非常同意A、較同意A、中立、較同意B、非常同意B</strong><br/>
-    （僅顯示題幹，不顯示任何功能名稱）
+    （僅顯示敘述，不顯示任何功能名稱）
   `;
   root.appendChild(hint);
 
@@ -93,6 +114,7 @@ export async function initRenderBasic(rootId = 'app') {
   const answerMap = new Map(); // name -> value
   items.forEach((it, idx) => {
     const qId = pickId(it, idx);
+    const stem = String(pickStem(it) ?? '').trim();
     const textA = String(pickTextA(it) ?? '').trim();
     const textB = String(pickTextB(it) ?? '').trim();
 
@@ -110,6 +132,15 @@ export async function initRenderBasic(rootId = 'app') {
     head.style.marginBottom = '8px';
     head.textContent = `第 ${idx + 1} 題`;
     block.appendChild(head);
+
+    // 題幹（stem）
+    if (stem) {
+      const stemEl = document.createElement('div');
+      stemEl.className = 'q-stem';
+      stemEl.style.cssText = 'margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;';
+      stemEl.textContent = stem;
+      block.appendChild(stemEl);
+    }
 
     // AB 文字（不顯示功能名，只顯示句子）
     const abRow = document.createElement('div');
@@ -246,12 +277,12 @@ export async function initRenderBasic(rootId = 'app') {
         total,
         scale: 'A/B 5-point (-2..2)',
       },
-      // 注意：保留「題庫原始順序」與「當前作答順序」
       originalOrder,         // 原始載入時（未洗牌）之 id 序
       order: orderCurrent,   // 洗牌後實際作答的 id 序
-      // 為了結果頁 compute，保留 item 的最小必要資訊（只要 id 與 A/B 題幹）
+      // 為了結果頁 compute，保留 item 的最小必要資訊（id / stem / A / B）
       items: items.map((it, idx) => ({
         id: pickId(it, idx),
+        stem: String(pickStem(it) ?? ''),
         A: String(pickTextA(it) ?? ''),
         B: String(pickTextB(it) ?? ''),
       })),
@@ -285,10 +316,8 @@ export async function initRenderBasic(rootId = 'app') {
 
 // 若直接以 <script type="module"> 引入，且 DOM 準備好，則自動啟動
 if (typeof window !== 'undefined') {
-  // 僅在有 document 環境才嘗試自動初始化
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      // 僅當網頁檔名看起來像 basic.html 才自啟，避免在其他頁面誤觸
       if (location.pathname.endsWith('basic.html')) {
         initRenderBasic().catch(console.error);
       }
