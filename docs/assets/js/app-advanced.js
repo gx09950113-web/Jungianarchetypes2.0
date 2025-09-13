@@ -7,21 +7,20 @@ import { getQuery } from './lib/router.js';
 let __booted = false;
 
 function showError(err) {
+  // 只記錄到 Console，不再插入畫面上的提示框
   console.error('[app-advanced] init failed:', err);
-  const root = document.getElementById('app') || document.body;
-  const box = document.createElement('div');
-  box.style.cssText = 'margin:1rem;padding:1rem;border:1px solid #e11d48;background:#fff1f2;color:#9f1239';
-  box.textContent = 'Advanced 渲染失敗：' + (err?.message || err);
-  root.prepend(box);
 }
 
 async function main() {
   if (__booted) return;
   __booted = true;
+
+  const q = getQuery();
+  const set = String(q.set || q.group || q.a || 'A').toUpperCase();
+
   try {
-    const q = getQuery();
-    const set = String(q.set || q.group || 'A').toUpperCase();
-    await initRenderAdvanced('app', set);
+    await initRenderAdvanced('app', set); // <-- 原檔沒把 set 傳進去，這裡補上
+    console.debug('[advanced] ready, set =', set);
   } catch (err) {
     showError(err);
   }
