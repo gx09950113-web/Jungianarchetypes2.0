@@ -7,10 +7,9 @@ function showError(err) { console.error('[app-advanced] init failed:', err); } /
 
 async function main() {
   if (__booted) return; __booted = true;
-  const q = getQuery();
-  const set = String(q.set || q.group || q.a || 'A').toUpperCase();
-  try {
-    await initRenderAdvanced('app', set);   // ★ 把 set 傳進去
+const q = getQuery();
+const set = String(q.set || q.group || q.a || 'A').toUpperCase();
+await initRenderAdvanced('app', set);
     console.debug('[advanced] ready, set =', set);
   } catch (err) { showError(err); }
 }
