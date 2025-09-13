@@ -8,16 +8,8 @@ import * as store from './lib/store.js';
 let __booted = false;
 
 function showError(err) {
+  // 只記錄到 Console，不再插入畫面上的提示框
   console.error('[app-result] init failed:', err);
-  const root = document.getElementById('app') || document.body;
-  const box = document.createElement('div');
-  box.style.margin = '1rem';
-  box.style.padding = '1rem';
-  box.style.border = '1px solid #e11d48';
-  box.style.background = '#fff1f2';
-  box.style.color = '#9f1239';
-  box.textContent = 'Result 渲染失敗：' + (err?.message || err);
-  root.prepend(box);
 }
 
 async function main() {
@@ -37,7 +29,7 @@ async function main() {
   if (!id) return showError(new Error('缺少 id，且在本機找不到歷史紀錄。'));
 
   try {
-    await initRenderResult('app'); // <-- 改為 initRenderResult
+    await initRenderResult('app'); // <-- 呼叫 initRenderResult
     console.debug('[result] ready, id =', id);
   } catch (err) {
     showError(err);
