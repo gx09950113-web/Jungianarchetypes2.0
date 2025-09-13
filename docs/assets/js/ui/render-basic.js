@@ -1,32 +1,36 @@
 // /docs/assets/js/ui/render-basic.js
+// 基礎 32 題渲染（不自啟，由 app-basic.js 呼叫）
 
 import * as util from '../lib/util.js';
 import * as loader from '../lib/loader.js';
-import * as router from '../lib/router.js';
 import * as store from '../lib/store.js';
 
+let __startedBasic = false;
+
 /**
- * 公開初始化函式
- * - 可以在 console 直接執行：await initRenderBasic()
- * - 若頁面沒有容器，會自動建立 <div id="app"></div>
+ * 初始化基礎測驗頁
+ * @param {string} rootId - 掛載容器的 id（預設 'app'）
  */
 export async function initRenderBasic(rootId = 'app') {
-  // 建立/取得容器
+  if (__startedBasic) return; // 防重複
+  __startedBasic = true;
+
+  // 容器
   let root = document.getElementById(rootId);
   if (!root) {
     root = document.createElement('div');
     root.id = rootId;
     document.body.appendChild(root);
   }
-  root.innerHTML = ''; // 清空
+  root.innerHTML = '';
 
   // 標題
   const title = document.createElement('h1');
   title.textContent = '基礎 32 題自測';
   root.appendChild(title);
 
-  // 載入題庫
-  let items = await loader.loadItemsBasic(); // 預期回傳 array
+  // 題庫
+  let items = await loader.loadItemsBasic();
   if (!Array.isArray(items) || items.length === 0) {
     const p = document.createElement('p');
     p.textContent = '找不到題庫資料（items_public_32.json）。';
@@ -34,8 +38,7 @@ export async function initRenderBasic(rootId = 'app') {
     return;
   }
 
-  // ====== 這裡是關鍵修正：相容你的 JSON 結構 ======
-  // 你的 JSON: { id, stem, options: [A, B] }
+  // 相容欄位：你的資料為 { id, stem, options:[A,B] }
   const pickStem = (it) =>
     it.stem ?? it.prompt ?? it.title ?? it.desc ?? it.description ?? '';
 
@@ -49,23 +52,9 @@ export async function initRenderBasic(rootId = 'app') {
 
   const pickId = (it, i) => it.id ?? it._id ?? it.key ?? `q${i + 1}`;
 
-  // 題序洗牌（同時保留原始 order 的 id）
+  // 題序：保留原始順序 id，實作答用洗牌順序
   const originalOrder = items.map((it, i) => pickId(it, i));
   items = util.shuffle(items.slice());
-
-  // --- debug 區（可刪）----
-  try {
-    const first = items[0];
-    const dbg = document.createElement('div');
-    dbg.style.cssText = 'margin:12px;padding:10px;border-radius:8px;background:#f1f5f9;color:#0f172a;font:12px/1.4 ui-monospace,monospace';
-    dbg.innerHTML = [
-      '<b>debug</b>',
-      '第一題 stem：' + escapeHTML(pickStem(first) || '(無)'),
-      'A：' + escapeHTML(String(pickTextA(first) ?? '')),
-      'B：' + escapeHTML(String(pickTextB(first) ?? '')),
-    ].join('<br/>');
-    root.appendChild(dbg);
-  } catch {}
 
   // 說明
   const hint = document.createElement('p');
@@ -82,26 +71,21 @@ export async function initRenderBasic(rootId = 'app') {
   const progressText = document.createElement('div');
   progressText.textContent = `0 / ${items.length}`;
   const progressBar = document.createElement('div');
-  progressBar.style.height = '8px';
-  progressBar.style.background = 'var(--bg-muted, #eee)';
-  progressBar.style.borderRadius = '999px';
-  progressBar.style.overflow = 'hidden';
+  progressBar.style.cssText = 'height:8px;background:#eee;border-radius:999px;overflow:hidden';
   const progressInner = document.createElement('div');
-  progressInner.style.height = '100%';
-  progressInner.style.width = '0%';
-  progressInner.style.background = 'var(--accent, #4caf50)';
+  progressInner.style.cssText = 'height:100%;width:0%;background:var(--accent,#4caf50)';
   progressBar.appendChild(progressInner);
   progressWrap.appendChild(progressText);
   progressWrap.appendChild(progressBar);
   root.appendChild(progressWrap);
 
-  // 表單容器
+  // 表單
   const form = document.createElement('form');
   form.autocomplete = 'off';
   form.noValidate = true;
   root.appendChild(form);
 
-  // Likert 選項定義（值域 -2..2）
+  // Likert（-2..2）
   const SCALE = [
     { label: '非常同意A', value: -2 },
     { label: '較同意A', value: -1 },
@@ -110,8 +94,10 @@ export async function initRenderBasic(rootId = 'app') {
     { label: '非常同意B', value: 2 },
   ];
 
-  // 產生題目區塊
+  // 作答收集
   const answerMap = new Map(); // name -> value
+
+  // 題目渲染
   items.forEach((it, idx) => {
     const qId = pickId(it, idx);
     const stem = String(pickStem(it) ?? '').trim();
@@ -120,48 +106,33 @@ export async function initRenderBasic(rootId = 'app') {
 
     const block = document.createElement('section');
     block.className = 'q-block';
-    block.style.border = '1px solid var(--line, #ddd)';
-    block.style.borderRadius = '8px';
-    block.style.padding = '12px';
-    block.style.margin = '12px 0';
+    block.style.cssText = 'border:1px solid var(--line,#ddd);border-radius:8px;padding:12px;margin:12px 0';
 
     // 題號
     const head = document.createElement('div');
-    head.className = 'q-head';
-    head.style.fontWeight = '600';
-    head.style.marginBottom = '8px';
+    head.style.cssText = 'font-weight:600;margin-bottom:8px';
     head.textContent = `第 ${idx + 1} 題`;
     block.appendChild(head);
 
     // 題幹（stem）
     if (stem) {
       const stemEl = document.createElement('div');
-      stemEl.className = 'q-stem';
       stemEl.style.cssText = 'margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;';
       stemEl.textContent = stem;
       block.appendChild(stemEl);
     }
 
-    // AB 文字（不顯示功能名，只顯示句子）
+    // AB 敘述
     const abRow = document.createElement('div');
-    abRow.className = 'q-ab-row';
-    abRow.style.display = 'grid';
-    abRow.style.gridTemplateColumns = '1fr 1fr';
-    abRow.style.gap = '12px';
+    abRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
 
     const aBox = document.createElement('div');
-    aBox.className = 'q-a';
     aBox.innerHTML = `<div style="font-size:12px;opacity:.75;">A</div><div>${escapeHTML(textA)}</div>`;
-    aBox.style.border = '1px dashed var(--line, #ddd)';
-    aBox.style.borderRadius = '6px';
-    aBox.style.padding = '8px';
+    aBox.style.cssText = 'border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
 
     const bBox = document.createElement('div');
-    bBox.className = 'q-b';
     bBox.innerHTML = `<div style="font-size:12px;opacity:.75;">B</div><div>${escapeHTML(textB)}</div>`;
-    bBox.style.border = '1px dashed var(--line, #ddd)';
-    bBox.style.borderRadius = '6px';
-    bBox.style.padding = '8px';
+    bBox.style.cssText = 'border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
 
     abRow.appendChild(aBox);
     abRow.appendChild(bBox);
@@ -169,32 +140,17 @@ export async function initRenderBasic(rootId = 'app') {
 
     // Likert 列
     const scaleRow = document.createElement('div');
-    scaleRow.className = 'q-scale';
-    scaleRow.style.display = 'grid';
-    scaleRow.style.gridTemplateColumns = `repeat(${SCALE.length}, 1fr)`;
-    scaleRow.style.gap = '8px';
-    scaleRow.style.marginTop = '10px';
+    scaleRow.style.cssText = `display:grid;grid-template-columns:repeat(${SCALE.length},1fr);gap:8px;margin-top:10px`;
 
     const groupName = `q_${qId}`;
-
-    SCALE.forEach((opt, i) => {
+    SCALE.forEach((opt) => {
       const cell = document.createElement('label');
-      cell.className = 'scale-cell';
-      cell.style.display = 'flex';
-      cell.style.flexDirection = 'column';
-      cell.style.alignItems = 'center';
-      cell.style.gap = '4px';
-      cell.style.padding = '8px';
-      cell.style.border = '1px solid var(--line, #ddd)';
-      cell.style.borderRadius = '6px';
-      cell.style.cursor = 'pointer';
+      cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border:1px solid var(--line,#ddd);border-radius:6px;cursor:pointer';
 
       const radio = document.createElement('input');
       radio.type = 'radio';
       radio.name = groupName;
       radio.value = String(opt.value);
-
-      // 讓鍵盤操作順
       radio.addEventListener('change', () => {
         answerMap.set(groupName, Number(radio.value));
         updateProgress();
@@ -212,27 +168,19 @@ export async function initRenderBasic(rootId = 'app') {
     form.appendChild(block);
   });
 
-  // 提交列
+  // 動作列
   const actions = document.createElement('div');
-  actions.style.display = 'flex';
-  actions.style.gap = '12px';
-  actions.style.margin = '16px 0';
+  actions.style.cssText = 'display:flex;gap:12px;margin:16px 0';
+
   const btnSubmit = document.createElement('button');
   btnSubmit.type = 'submit';
   btnSubmit.textContent = '送出並查看結果';
-  btnSubmit.style.padding = '10px 14px';
-  btnSubmit.style.borderRadius = '8px';
-  btnSubmit.style.border = 'none';
-  btnSubmit.style.background = 'var(--accent, #4caf50)';
-  btnSubmit.style.color = '#fff';
-  btnSubmit.style.fontWeight = '600';
+  btnSubmit.style.cssText = 'padding:10px 14px;border-radius:8px;border:none;background:var(--accent,#4caf50);color:#fff;font-weight:600';
 
   const btnReset = document.createElement('button');
   btnReset.type = 'button';
   btnReset.textContent = '清除未送出作答';
-  btnReset.style.padding = '10px 14px';
-  btnReset.style.borderRadius = '8px';
-  btnReset.style.border = '1px solid var(--line, #ddd)';
+  btnReset.style.cssText = 'padding:10px 14px;border-radius:8px;border:1px solid var(--line,#ddd)';
   btnReset.addEventListener('click', () => {
     form.reset();
     answerMap.clear();
@@ -243,20 +191,19 @@ export async function initRenderBasic(rootId = 'app') {
   actions.appendChild(btnReset);
   root.appendChild(actions);
 
-  // 表單提交
-  form.addEventListener('submit', async (e) => {
+  // 送出
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
 
     const total = items.length;
     const names = items.map((it, idx) => `q_${pickId(it, idx)}`);
     const missing = names.filter((n) => !answerMap.has(n));
-
     if (missing.length > 0) {
       alert(`尚有 ${missing.length} 題未作答，請完成所有題目。`);
       return;
     }
 
-    // 依「目前題序」收集 answers 與 itemId 序列
+    // 依洗牌後順序收集答案
     const answers = [];
     const orderCurrent = [];
     items.forEach((it, idx) => {
@@ -267,7 +214,6 @@ export async function initRenderBasic(rootId = 'app') {
       orderCurrent.push(id);
     });
 
-    // 建立 session 物件（不做任何計分，交由結果頁 compute）
     const session = {
       id: util.uuid(),
       kind: 'basic',
@@ -277,27 +223,22 @@ export async function initRenderBasic(rootId = 'app') {
         total,
         scale: 'A/B 5-point (-2..2)',
       },
-      originalOrder,         // 原始載入時（未洗牌）之 id 序
-      order: orderCurrent,   // 洗牌後實際作答的 id 序
-      // 為了結果頁 compute，保留 item 的最小必要資訊（id / stem / A / B）
+      originalOrder,        // 載入時未洗牌的 id 序
+      order: orderCurrent,  // 洗牌後作答序
       items: items.map((it, idx) => ({
         id: pickId(it, idx),
         stem: String(pickStem(it) ?? ''),
         A: String(pickTextA(it) ?? ''),
         B: String(pickTextB(it) ?? ''),
       })),
-      answers, // 對應 order 的作答值（-2..2）
+      answers,              // 與 order 對應
     };
 
-    // 儲存並導向結果頁
     store.saveResult(session);
     location.href = `result.html?id=${encodeURIComponent(session.id)}`;
   });
 
-  // 初始進度
-  updateProgress();
-
-  // --------- util 區 ---------
+  // 進度
   function updateProgress() {
     const answered = answerMap.size;
     const total = items.length;
@@ -313,18 +254,4 @@ export async function initRenderBasic(rootId = 'app') {
       .replaceAll('>', '&gt;');
   }
 }
-
-// 若直接以 <script type="module"> 引入，且 DOM 準備好，則自動啟動
-if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      if (location.pathname.endsWith('basic.html')) {
-        initRenderBasic().catch(console.error);
-      }
-    });
-  } else {
-    if (location.pathname.endsWith('basic.html')) {
-      initRenderBasic().catch(console.error);
-    }
-  }
-}
+// ★ 不自啟：檔尾不要呼叫 initRenderBasic()
