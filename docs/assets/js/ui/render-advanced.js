@@ -1,16 +1,21 @@
 // /docs/assets/js/ui/render-advanced.js
+// 進階題渲染（不自啟，由 app-advanced.js 呼叫）
 
 import * as util from '../lib/util.js';
 import * as loader from '../lib/loader.js';
-import * as router from '../lib/router.js';
 import * as store from '../lib/store.js';
 
+let __startedAdvanced = false;
+
 /**
- * 初始化進階題（A/B/C）：
- * - 由 URL ?set=A|B|C 指定，預設 A
- * - 題目結構相容 { id, stem, options:[A,B] }
+ * 初始化進階測驗頁
+ * @param {string} rootId - 掛載容器 id（預設 'app'）
+ * @param {'A'|'B'|'C'} set - 題組（預設 'A'）
  */
-export async function initRenderAdvanced(rootId = 'app') {
+export async function initRenderAdvanced(rootId = 'app', set = 'A') {
+  if (__startedAdvanced) return; // 防重複
+  __startedAdvanced = true;
+
   // 容器
   let root = document.getElementById(rootId);
   if (!root) {
@@ -20,19 +25,16 @@ export async function initRenderAdvanced(rootId = 'app') {
   }
   root.innerHTML = '';
 
-  // 讀 set
-  const q = router.getQuery?.() ?? Object.fromEntries(new URLSearchParams(location.search));
-  const SET = String(q.set || q.group || 'A').toUpperCase();
-  if (!['A', 'B', 'C'].includes(SET)) {
-    console.warn('[advanced] unknown set, fallback to A:', SET);
-  }
+  const SET = ['A', 'B', 'C'].includes(String(set).toUpperCase())
+    ? String(set).toUpperCase()
+    : 'A';
 
   // 標題
   const title = document.createElement('h1');
-  title.textContent = `進階題組 ${['A','B','C'].includes(SET) ? SET : 'A'}`;
+  title.textContent = `進階題組 ${SET}`;
   root.appendChild(title);
 
-  // 載入題庫（檔名 items_public_adv_A/B/C.json）
+  // 題庫
   let items = await loader.loadItemsAdv(SET);
   if (!Array.isArray(items) || items.length === 0) {
     const p = document.createElement('p');
@@ -41,7 +43,7 @@ export async function initRenderAdvanced(rootId = 'app') {
     return;
   }
 
-  // 相容欄位：stem + options[0/1]
+  // 相容欄位
   const pickStem = (it) =>
     it.stem ?? it.prompt ?? it.title ?? it.desc ?? it.description ?? '';
 
@@ -55,23 +57,9 @@ export async function initRenderAdvanced(rootId = 'app') {
 
   const pickId = (it, i) => it.id ?? it._id ?? it.key ?? `q${i + 1}`;
 
-  // 題序洗牌（保留原始順序 id 序列）
+  // 題序
   const originalOrder = items.map((it, i) => pickId(it, i));
   items = util.shuffle(items.slice());
-
-  // debug 區（可刪）
-  try {
-    const first = items[0];
-    const dbg = document.createElement('div');
-    dbg.style.cssText = 'margin:12px;padding:10px;border-radius:8px;background:#f1f5f9;color:#0f172a;font:12px/1.4 ui-monospace,monospace';
-    dbg.innerHTML = [
-      `<b>debug</b>（set=${['A','B','C'].includes(SET)?SET:'A'}）`,
-      '第一題 stem：' + escapeHTML(pickStem(first) || '(無)'),
-      'A：' + escapeHTML(String(pickTextA(first) ?? '')),
-      'B：' + escapeHTML(String(pickTextB(first) ?? '')),
-    ].join('<br/>');
-    root.appendChild(dbg);
-  } catch {}
 
   // 說明
   const hint = document.createElement('p');
@@ -82,20 +70,15 @@ export async function initRenderAdvanced(rootId = 'app') {
   `;
   root.appendChild(hint);
 
-  // 進度
+  // 進度列
   const progressWrap = document.createElement('div');
   progressWrap.style.margin = '12px 0';
   const progressText = document.createElement('div');
   progressText.textContent = `0 / ${items.length}`;
   const progressBar = document.createElement('div');
-  progressBar.style.height = '8px';
-  progressBar.style.background = 'var(--bg-muted, #eee)';
-  progressBar.style.borderRadius = '999px';
-  progressBar.style.overflow = 'hidden';
+  progressBar.style.cssText = 'height:8px;background:#eee;border-radius:999px;overflow:hidden';
   const progressInner = document.createElement('div');
-  progressInner.style.height = '100%';
-  progressInner.style.width = '0%';
-  progressInner.style.background = 'var(--accent, #4caf50)';
+  progressInner.style.cssText = 'height:100%;width:0%;background:var(--accent,#4caf50)';
   progressBar.appendChild(progressInner);
   progressWrap.appendChild(progressText);
   progressWrap.appendChild(progressBar);
@@ -107,7 +90,7 @@ export async function initRenderAdvanced(rootId = 'app') {
   form.noValidate = true;
   root.appendChild(form);
 
-  // Likert 刻度
+  // Likert（-2..2）
   const SCALE = [
     { label: '非常同意A', value: -2 },
     { label: '較同意A', value: -1 },
@@ -116,8 +99,9 @@ export async function initRenderAdvanced(rootId = 'app') {
     { label: '非常同意B', value: 2 },
   ];
 
-  // 產生題目
   const answerMap = new Map();
+
+  // 題目渲染
   items.forEach((it, idx) => {
     const qId = pickId(it, idx);
     const stem = String(pickStem(it) ?? '').trim();
@@ -125,70 +109,42 @@ export async function initRenderAdvanced(rootId = 'app') {
     const textB = String(pickTextB(it) ?? '').trim();
 
     const block = document.createElement('section');
-    block.className = 'q-block';
-    block.style.border = '1px solid var(--line, #ddd)';
-    block.style.borderRadius = '8px';
-    block.style.padding = '12px';
-    block.style.margin = '12px 0';
+    block.style.cssText = 'border:1px solid var(--line,#ddd);border-radius:8px;padding:12px;margin:12px 0';
 
     const head = document.createElement('div');
-    head.className = 'q-head';
-    head.style.fontWeight = '600';
-    head.style.marginBottom = '8px';
+    head.style.cssText = 'font-weight:600;margin-bottom:8px';
     head.textContent = `第 ${idx + 1} 題`;
     block.appendChild(head);
 
     if (stem) {
       const stemEl = document.createElement('div');
-      stemEl.className = 'q-stem';
       stemEl.style.cssText = 'margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;';
       stemEl.textContent = stem;
       block.appendChild(stemEl);
     }
 
     const abRow = document.createElement('div');
-    abRow.className = 'q-ab-row';
-    abRow.style.display = 'grid';
-    abRow.style.gridTemplateColumns = '1fr 1fr';
-    abRow.style.gap = '12px';
+    abRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
 
     const aBox = document.createElement('div');
-    aBox.className = 'q-a';
     aBox.innerHTML = `<div style="font-size:12px;opacity:.75;">A</div><div>${escapeHTML(textA)}</div>`;
-    aBox.style.border = '1px dashed var(--line, #ddd)';
-    aBox.style.borderRadius = '6px';
-    aBox.style.padding = '8px';
+    aBox.style.cssText = 'border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
 
     const bBox = document.createElement('div');
-    bBox.className = 'q-b';
     bBox.innerHTML = `<div style="font-size:12px;opacity:.75;">B</div><div>${escapeHTML(textB)}</div>`;
-    bBox.style.border = '1px dashed var(--line, #ddd)';
-    bBox.style.borderRadius = '6px';
-    bBox.style.padding = '8px';
+    bBox.style.cssText = 'border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
 
     abRow.appendChild(aBox);
     abRow.appendChild(bBox);
     block.appendChild(abRow);
 
     const scaleRow = document.createElement('div');
-    scaleRow.className = 'q-scale';
-    scaleRow.style.display = 'grid';
-    scaleRow.style.gridTemplateColumns = `repeat(${SCALE.length}, 1fr)`;
-    scaleRow.style.gap = '8px';
-    scaleRow.style.marginTop = '10px';
+    scaleRow.style.cssText = `display:grid;grid-template-columns:repeat(${SCALE.length},1fr);gap:8px;margin-top:10px`;
 
     const groupName = `q_${qId}`;
     SCALE.forEach((opt) => {
       const cell = document.createElement('label');
-      cell.className = 'scale-cell';
-      cell.style.display = 'flex';
-      cell.style.flexDirection = 'column';
-      cell.style.alignItems = 'center';
-      cell.style.gap = '4px';
-      cell.style.padding = '8px';
-      cell.style.border = '1px solid var(--line, #ddd)';
-      cell.style.borderRadius = '6px';
-      cell.style.cursor = 'pointer';
+      cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border:1px solid var(--line,#ddd);border-radius:6px;cursor:pointer';
 
       const radio = document.createElement('input');
       radio.type = 'radio';
@@ -213,25 +169,17 @@ export async function initRenderAdvanced(rootId = 'app') {
 
   // 動作列
   const actions = document.createElement('div');
-  actions.style.display = 'flex';
-  actions.style.gap = '12px';
-  actions.style.margin = '16px 0';
+  actions.style.cssText = 'display:flex;gap:12px;margin:16px 0';
+
   const btnSubmit = document.createElement('button');
   btnSubmit.type = 'submit';
   btnSubmit.textContent = '送出並查看結果';
-  btnSubmit.style.padding = '10px 14px';
-  btnSubmit.style.borderRadius = '8px';
-  btnSubmit.style.border = 'none';
-  btnSubmit.style.background = 'var(--accent, #4caf50)';
-  btnSubmit.style.color = '#fff';
-  btnSubmit.style.fontWeight = '600';
+  btnSubmit.style.cssText = 'padding:10px 14px;border-radius:8px;border:none;background:var(--accent,#4caf50);color:#fff;font-weight:600';
 
   const btnReset = document.createElement('button');
   btnReset.type = 'button';
   btnReset.textContent = '清除未送出作答';
-  btnReset.style.padding = '10px 14px';
-  btnReset.style.borderRadius = '8px';
-  btnReset.style.border = '1px solid var(--line, #ddd)';
+  btnReset.style.cssText = 'padding:10px 14px;border-radius:8px;border:1px solid var(--line,#ddd)';
   btnReset.addEventListener('click', () => {
     form.reset();
     answerMap.clear();
@@ -258,16 +206,16 @@ export async function initRenderAdvanced(rootId = 'app') {
     const orderCurrent = [];
     items.forEach((it, idx) => {
       const id = pickId(it, idx);
-      const val = Number(answerMap.get(`q_${id}`));
+      const name = `q_${id}`;
+      const val = Number(answerMap.get(name));
       answers.push(val);
       orderCurrent.push(id);
     });
 
-    // 存 session
     const session = {
       id: util.uuid(),
       kind: 'advanced',
-      set: ['A','B','C'].includes(SET) ? SET : 'A',
+      set: SET,
       createdAt: util.nowISO(),
       version: 1,
       meta: {
@@ -289,9 +237,7 @@ export async function initRenderAdvanced(rootId = 'app') {
     location.href = `result.html?id=${encodeURIComponent(session.id)}`;
   });
 
-  // 初始進度
-  updateProgress();
-
+  // 進度
   function updateProgress() {
     const answered = answerMap.size;
     const total = items.length;
@@ -307,18 +253,4 @@ export async function initRenderAdvanced(rootId = 'app') {
       .replaceAll('>', '&gt;');
   }
 }
-
-// 自動啟動（若檔名為 advanced.html）
-if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      if (location.pathname.endsWith('advanced.html')) {
-        initRenderAdvanced().catch(console.error);
-      }
-    });
-  } else {
-    if (location.pathname.endsWith('advanced.html')) {
-      initRenderAdvanced().catch(console.error);
-    }
-  }
-}
+// ★ 不自啟：檔尾不要呼叫 initRenderAdvanced()
