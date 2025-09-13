@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>進階題組｜榮格八維自測</title>
+
+  <!-- 共用樣式 -->
+  <link rel="stylesheet" href="./assets/css/style.css" />
+
+  <!-- 頁面入口（會呼叫 ui/render-advanced.js 裡的初始化） -->
+  <script type="module" src="./assets/js/app-advanced.js" defer></script>
+</head>
+<body>
+  <noscript>本頁需要啟用 JavaScript 才能作答。</noscript>
+
+  <header class="container">
+    <h1 class="title">進階題組</h1>
+    <p class="muted small">
+      目前題組：<strong id="set-badge" aria-live="polite">A</strong>（可透過網址列參數 <code>?set=A|B|C</code> 指定）
+      <br />題目僅顯示敘述，不會揭露任何主／輔功能排序。
+    </p>
+  </header>
+
+  <main class="container stack-lg" data-testid="advanced-root">
+    <!-- 進度 -->
+    <section class="card">
+      <div class="progress-row">
+        <div class="progress-label">
+          <strong id="counter" aria-live="polite">第 1 題</strong>
+        </div>
+        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+          <span id="progress" style="--pct:0%"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 題目 -->
+    <section class="card">
+      <h2 class="section-title">題目</h2>
+      <div id="question" class="question" data-testid="question" aria-live="polite">
+        <!-- 由 render-advanced.js 動態填入題幹 -->
+      </div>
+    </section>
+
+    <!-- Likert 量表 -->
+    <section class="card">
+      <h2 class="section-title">你的選擇</h2>
+      <form id="form" class="likert-form" data-testid="likert-form">
+        <div id="likert-wrap" class="likert-wrap"></div>
+      </form>
+    </section>
+
+    <!-- 導航 -->
+    <section class="card actions" aria-label="操作">
+      <div class="btn-row">
+        <button id="btn-prev" class="btn btn-ghost" type="button" data-testid="btn-prev" disabled>上一題</button>
+        <button id="btn-next" class="btn" type="button" data-testid="btn-next" disabled>下一題</button>
+        <button id="btn-submit" class="btn" type="button" data-testid="btn-submit" disabled>提交</button>
+      </div>
+      <p id="nav-hint" class="muted small">作答後可切換上一題/下一題；全部作答完成後方可提交。</p>
+    </section>
+
+    <!-- 可選：提交前確認 -->
+    <dialog id="confirm-dialog">
+      <form method="dialog" class="stack">
+        <p>確定要提交嗎？提交後將保存此次作答並前往結果頁。</p>
+        <div class="btn-row">
+          <button value="cancel" class="btn btn-ghost">取消</button>
+          <button value="ok" class="btn">確認提交</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>
