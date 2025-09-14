@@ -196,14 +196,23 @@ function finalizeStats(acc) {
 
 // ---------- 主初始化與繪圖 ----------
 export async function initRenderResult(mountId = 'app', opts = {}) {
-  await ensureChartJS();
+  // Chart.js 失敗時顯示友善訊息，不中斷整頁
+  try {
+    await ensureChartJS();
+  } catch (e) {
+    const rootErr = document.getElementById(mountId) || document.body;
+    rootErr.innerHTML = `<div style="padding:16px;border:1px solid var(--border,#e2e8f0);border-radius:12px">
+      無法載入繪圖元件（Chart.js）。請稍後再試或檢查網路：${e?.message || e}
+    </div>`;
+    return;
+  }
 
   const root = document.getElementById(mountId) || document.body;
   root.innerHTML = '';
 
   // 讀取記錄
   const id = opts.id || new URLSearchParams(location.search).get('id');
-  const rec = id ? store.getResult(id) : null;
+  const rec = id ? store.loadResult(id) : null; // 修正：store 公開 API 是 loadResult
   if (!rec) {
     root.innerHTML = `<div style="padding:16px;border:1px solid var(--border,#e2e8f0);border-radius:12px">
       無法顯示結果：找不到記錄 ${id ? `（id=${id}）` : '(未提供 id)'}

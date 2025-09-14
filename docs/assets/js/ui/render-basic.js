@@ -1,5 +1,7 @@
 // docs/assets/js/ui/render-basic.js
 (function () {
+  'use strict';
+
   const DRAFT_KEY = 'jung_basic_draft_v1';
 
   // ---------- 小工具 ----------
@@ -19,30 +21,37 @@
     });
     return node;
   }
+
   const storage = {
     load() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } },
     save(v){ localStorage.setItem(DRAFT_KEY, JSON.stringify(v || {})); },
     clear(){ localStorage.removeItem(DRAFT_KEY); }
   };
 
-  // ---------- 資料載入（優先用你的 loader，否則用 fallback 抓 JSON） ----------
+  // ---------- 資料載入（優先用 loader，否則 fallback 抓 JSON） ----------
   async function loadWithLoader() {
-    // 動態 import：若沒用 ES Module 也不會炸，會丟到 catch
+    // 嘗試用自訂 loader（若沒有或非 ESM 會進 catch）
     const mod = await import('../lib/loader.js');
-    const items = await mod.loadItemsBasic(); // 會自動處理各種路徑
+    // 期望 loader 內有 loadItemsBasic()
+    const items = await mod.loadItemsBasic();
     return items;
   }
+
   async function fetchJSON(url) {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
     return await res.json();
   }
+
   function candidateBases() {
+    // Pages 指到 docs/ 時，網站根目錄就是 docs/
+    // 這裡嘗試多種可能的 base 以增加容錯
     const bases = ['./data','../data','/data','./docs/data','../docs/data'];
     try {
       const u = new URL(document.baseURI);
       const parts = u.pathname.split('/').filter(Boolean);
       if (parts.length >= 1) {
+        // e.g. /Jungianarchetypes2.0/...
         const repo = `/${parts[0]}`;
         for (const p of [`${repo}/data`, `${repo}/docs/data`]) {
           if (!bases.includes(p)) bases.push(p);
@@ -51,20 +60,32 @@
     } catch {}
     return [...new Set(bases)];
   }
+
   async function loadWithFallback() {
     const rel = 'items_public_32.json';
     const bases = candidateBases();
     const errs = [];
     for (const b of bases) {
-      const url = `${b}/${rel}`.replace(/\/{2,}/g,'/');
-      try { return await fetchJSON(url); }
-      catch (e) { errs.push(`${url} → ${e.message}`); }
+      // 避免出現重複斜線
+      const url = `${b}/${rel}`.replace(/([^:]\/)\/+/g, '$1');
+      try {
+        const data = await fetchJSON(url);
+        return data;
+      } catch (e) {
+        errs.push(`${url} → ${e.message}`);
+      }
     }
-    throw new Error(`[render-basic] 無法載入 ${rel}\n候選：\n- ${bases.join('\n- ')}\n錯誤：\n- ${errs.join('\n- ')}`);
+    // 不丟出致命錯誤，回傳 null 交由上層靜默處理
+    console.log(`[render-basic] 無法載入 ${rel}\n候選：\n- ${bases.join('\n- ')}\n錯誤：\n- ${errs.join('\n- ')}`);
+    return null;
   }
+
   async function loadItemsBasic() {
-    try { return await loadWithLoader(); }
-    catch { return await loadWithFallback(); }
+    try {
+      return await loadWithLoader();
+    } catch {
+      return await loadWithFallback();
+    }
   }
 
   // ---------- UI：Likert（5點，固定 A/B 文案） ----------
@@ -127,13 +148,15 @@
     const root = $('#app') || document.body;
     root.innerHTML = '';
 
-    // 標頭 + 進度
+    // 標頭 + 說明
     root.appendChild(
       el('div', { style:{ margin:'8px 0 12px' } }, [
         el('p', { class:'muted', style:{ color:'var(--fg-muted,#64748b)', fontSize:'14px' } },
           '請依直覺作答。每題提供 A / B 兩側描述，量尺代表你傾向哪一側；沒有對錯之分。')
       ])
     );
+
+    // 進度條
     const progWrap = el('div', {
       id:'progress',
       style:{ display:'flex', alignItems:'center', gap:'10px', margin:'8px 0 16px', fontSize:'14px' }
@@ -145,10 +168,22 @@
     ]);
     root.appendChild(progWrap);
 
-    // 載入題庫（優先 loader）
-    let items = await loadItemsBasic();
-    // 保險：確保有 id/stem/options
-    items = items.map((it, i) => ({
+    // 載入題庫（優先 loader）→ 失敗時靜默為空陣列
+    let items = [];
+    try {
+      items = await loadItemsBasic();
+    } catch (err) {
+      console.log('[render-basic] 載入題庫失敗（靜默處理）:', err?.message || err);
+      items = [];
+    }
+
+    // 容忍 {items:[...]} 或直接 [...]
+    if (items && !Array.isArray(items) && Array.isArray(items.items)) {
+      items = items.items;
+    }
+
+    // 確保有 id/stem/options
+    items = (items || []).map((it, i) => ({
       id: it.id ?? `q_${i+1}`,
       stem: (it.stem ?? it.text ?? '').trim(),
       options: Array.isArray(it.options) ? it.options.slice(0,2) : [null, null]
@@ -179,7 +214,7 @@
       updateProgress();
     });
 
-    // 清除草稿按鈕
+    // 清除草稿按鈕（若頁面有就綁定）
     const clearBtn = $('#clear, [data-role="clear"]');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
@@ -194,7 +229,7 @@
     // 初始進度
     updateProgress();
 
-    // 可選：鍵盤左右切換選項（提升體驗）
+    // 鍵盤左右切換選項（提升體驗）
     list.addEventListener('keydown', (e) => {
       if (!['ArrowLeft','ArrowRight'].includes(e.key)) return;
       const input = e.target;
@@ -208,6 +243,6 @@
     });
   }
 
-  // 掛到全域
+  // 對外掛點（由 app-basic.js 呼叫）
   window.renderBasic = renderBasicImpl;
 })();

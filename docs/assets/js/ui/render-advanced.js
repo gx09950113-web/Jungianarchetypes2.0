@@ -1,5 +1,7 @@
 // docs/assets/js/ui/render-advanced.js
 (function () {
+  'use strict';
+
   // ---------- 小工具 ----------
   const $  = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -23,11 +25,13 @@
     const mod = await import('../lib/loader.js');
     return await mod.loadItemsAdv(set);
   }
+
   async function fetchJSON(url) {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
     return await res.json();
   }
+
   function candidateBases() {
     const bases = ['./data','../data','/data','./docs/data','../docs/data'];
     try {
@@ -42,21 +46,49 @@
     } catch {}
     return [...new Set(bases)];
   }
+
+  function normalizeItemsContainer(raw){
+    // 支援：直接陣列或常見容器鍵
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw === 'object') {
+      for (const key of ['items','questions','list','data','payload','results']) {
+        if (Array.isArray(raw[key])) return raw[key];
+      }
+      // 退一步：若物件中只有一個陣列值，就採用它
+      const arrays = Object.values(raw).filter(v => Array.isArray(v));
+      if (arrays.length === 1) return arrays[0];
+    }
+    return [];
+  }
+
   async function loadWithFallback(set) {
     const S = String(set).toUpperCase();
     const rel = `items_public_adv_${S}.json`;
     const bases = candidateBases();
     const errs = [];
     for (const b of bases) {
-      const url = `${b}/${rel}`.replace(/\/{2,}/g,'/');
-      try { return await fetchJSON(url); }
-      catch (e) { errs.push(`${url} → ${e.message}`); }
+      // 安全合併路徑：保留 "https://"
+      const url = `${b}/${rel}`.replace(/([^:]\/)\/+/g,'$1');
+      try {
+        const raw = await fetchJSON(url);
+        return normalizeItemsContainer(raw);
+      } catch (e) {
+        errs.push(`${url} → ${e.message}`);
+      }
     }
-    throw new Error(`[render-advanced] 無法載入 ${rel}\n候選：\n- ${bases.join('\n- ')}\n錯誤：\n- ${errs.join('\n- ')}`);
+    // 靜默回傳空，不中斷流程（錯誤只記錄在 console）
+    console.log(`[render-advanced] 無法載入 ${rel}\n候選：\n- ${bases.join('\n- ')}\n錯誤：\n- ${errs.join('\n- ')}`);
+    return [];
   }
+
   async function loadItemsAdv(set) {
-    try { return await loadWithLoader(set); }
-    catch { return await loadWithFallback(set); }
+    try {
+      const items = await loadWithLoader(set);
+      // loader 已處理容器，但保險再 normalize 一次
+      return normalizeItemsContainer(items);
+    } catch {
+      return await loadWithFallback(set);
+    }
   }
 
   // ---------- UI：Likert（5點，固定 A/B 文案） ----------
@@ -151,23 +183,31 @@
     ]);
     root.appendChild(progWrap);
 
-    // 5) 載入題庫（優先 loader）
-    let items = await loadItemsAdv(SET);
-    items = items.map((it, i) => ({
+    // 5) 載入題庫（優先 loader；失敗靜默為空）
+    let items = [];
+    try {
+      items = await loadItemsAdv(SET);
+    } catch (err) {
+      console.log('[render-advanced] 載入題庫失敗（靜默處理）:', err?.message || err);
+      items = [];
+    }
+
+    // 6) 確保有 id/stem/options
+    items = (items || []).map((it, i) => ({
       id: it.id ?? `q_${i+1}`,
       stem: (it.stem ?? it.text ?? '').trim(),
       options: Array.isArray(it.options) ? it.options.slice(0,2) : [null, null]
     }));
 
-    // 6) 草稿
+    // 7) 草稿
     const draft = storage.load();
 
-    // 7) 題目列表
+    // 8) 題目列表
     const list = el('div', { id:'qList' });
     items.forEach(it => list.appendChild(renderItemCard(it, draft[it.id] || null)));
     root.appendChild(list);
 
-    // 8) 進度更新
+    // 9) 進度更新
     const updateProgress = () => {
       const total = items.length;
       const done = items.reduce((n, it) => n + (draft[it.id] ? 1 : 0), 0);
@@ -175,7 +215,7 @@
       $('#progBar').style.width = `${total ? Math.round(done/total*100) : 0}%`;
     };
 
-    // 9) 即時存草稿
+    // 10) 即時存草稿
     list.addEventListener('change', (e) => {
       const input = e.target;
       if (!(input instanceof HTMLInputElement) || input.type !== 'radio') return;
@@ -184,7 +224,7 @@
       updateProgress();
     });
 
-    // 10) 清除草稿按鈕（共用 #clear）
+    // 11) 清除草稿按鈕（共用 #clear）
     const clearBtn = $('#clear, [data-role="clear"]');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
@@ -196,10 +236,10 @@
       });
     }
 
-    // 11) 初始進度
+    // 12) 初始進度
     updateProgress();
 
-    // 12) 鍵盤左右切換
+    // 13) 鍵盤左右切換
     list.addEventListener('keydown', (e) => {
       if (!['ArrowLeft','ArrowRight'].includes(e.key)) return;
       const input = e.target;
