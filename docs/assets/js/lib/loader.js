@@ -1,7 +1,7 @@
 // /docs/assets/js/lib/loader.js
 import { assert } from './util.js';
 
-const CANDIDATE_BASES = ['./data','../data','/data'];
+const CANDIDATE_BASES = ['./data','../data','/data', './docs/data'];
 (function appendGhPagesBase(){
   try{
     const u = new URL(document.baseURI);
@@ -65,7 +65,9 @@ export async function loadItemsBasic(){
   const { json, rawText, urlTried } = await fetchFromCandidates('items_public_32.json');
   const items = normalizeItemsContainer(json);
   showDiag('basic', urlTried, json, items, rawText);
-  assert(items.length>0, `[loader] 基礎題庫為空（來源：${urlTried}）`);
+  if (items.length === 0) {
+  console.warn(`[loader] 基礎題庫為空（來源：${urlTried}）`);
+  }
   return items;
 }
 export async function loadItemsAdv(set='A'){
@@ -73,7 +75,9 @@ export async function loadItemsAdv(set='A'){
   const { json, rawText, urlTried } = await fetchFromCandidates(`items_public_adv_${S}.json`);
   const items = normalizeItemsContainer(json);
   showDiag(`adv_${S}`, urlTried, json, items, rawText);
-  assert(items.length>0, `[loader] 進階題庫為空（${S}，來源：${urlTried}）`);
+  if (items.length === 0) {
+  console.warn(`[loader] 進階題庫為空（${S}，來源：${urlTried}）`);
+  }
   return items;
 }
 

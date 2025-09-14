@@ -107,7 +107,10 @@ export function saveResult(session = {}) {
 
   // 2) 寫入單筆
   const ok = safeSet(itemKey(id), saved);
-  assert(ok, 'Failed to save result (storage full or blocked)');
+  if (!ok) {
+    console.warn('Failed to save result (storage full or blocked)');
+    return null;
+  }
 
   // 3) 更新索引（摘要）
   const metas = readIndex();
