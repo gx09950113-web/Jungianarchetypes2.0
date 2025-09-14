@@ -1,14 +1,30 @@
 // docs/assets/js/app-basic.js
 (function () {
+  // ====== 常數與工具（放外層）======
+  const DB_KEY    = 'jung_records_v1';      // 結果記錄庫
+  const DRAFT_KEY = 'jung_basic_draft_v1';  // basic 草稿（render-basic 用）
+
+  function collectBasicAnswers() {
+    // 先抓畫面上的選項；若無則回退到草稿
+    const picked = {};
+    document.querySelectorAll('#qList input[type="radio"]:checked')
+      .forEach(r => picked[r.name] = Number(r.value));
+    if (Object.keys(picked).length) return picked;
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  function saveRecord(rec) {
+    const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+    db[rec.id] = rec;
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+  }
+
   function normalizeButtons() {
     const submitBtn = document.querySelector('#submit, [data-role="submit"], button[type="submit"]');
-    if (submitBtn) {
-      try { submitBtn.type = 'button'; } catch(_) {}
-    }
-    const clearBtn = document.querySelector('#clear, [data-role="clear"]');
-    if (clearBtn) {
-      try { clearBtn.type = 'button'; } catch(_) {}
-    }
+    if (submitBtn) { try { submitBtn.type = 'button'; } catch(_) {} }
+    const clearBtn  = document.querySelector('#clear, [data-role="clear"]');
+    if (clearBtn) { try { clearBtn.type = 'button'; } catch(_) {} }
   }
 
   function bindDelegatedActions() {
@@ -21,46 +37,20 @@
         submit.disabled = true;
         console.time('[basic submit]');
 
-        // TODO：在這裡接回你的收集→計分→存檔
-        // 放在檔案頂端或 handler 外
-const DB_KEY    = 'jung_records_v1';       // 記錄庫
-const DRAFT_KEY = 'jung_basic_draft_v1';   // render-basic 用的草稿
-
-function collectBasicAnswers() {
-  // 先抓畫面上已選的；如果沒有，就用草稿（讓你能不用重填也能看結果）
-  const picked = {};
-  document.querySelectorAll('#qList input[type="radio"]:checked')
-    .forEach(r => picked[r.name] = Number(r.value));
-  if (Object.keys(picked).length) return picked;
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); }
-  catch { return {}; }
-}
-
-function saveRecord(rec) {
-  const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
-  db[rec.id] = rec;
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
-}
-
-// 送出 handler 裡改成：
-const answers = collectBasicAnswers();
-const id = (crypto.randomUUID?.() || Date.now()).toString();
-const rec = {
-  id,
-  type: 'basic',
-  version: 1,
-  ts: Date.now(),
-  answers // { qid: 1..5 }
-};
-saveRecord(rec);
-location.href = `result.html?id=${encodeURIComponent(id)}`;
-
-        // const answers = collectBasicAnswers();
-        // const result  = computeBasic(answers);
-        // const id = store.saveResult({ type:'basic', answers, result, ts: Date.now() });
-
-        // 先用最低保真通路測試
+        // 收集 → 存檔 → 轉跳
+        const answers = collectBasicAnswers();
         const id = (crypto.randomUUID?.() || Date.now()).toString();
+        const rec = {
+          id,
+          type: 'basic',
+          version: 1,
+          ts: Date.now(),
+          answers // { qid: 1..5 }
+        };
+        saveRecord(rec);
+        // 檢查一下確實寫入（除錯可留，穩定後可移除）
+        // console.log('[saved]', id, JSON.parse(localStorage.getItem(DB_KEY) || '{}')[id]);
+
         location.href = `result.html?id=${encodeURIComponent(id)}`;
       } catch (err) {
         console.error('[basic submit] failed:', err);
@@ -70,13 +60,15 @@ location.href = `result.html?id=${encodeURIComponent(id)}`;
       }
     });
 
-    // 清除：可選
+    // 清除暫存草稿（非必要）
     document.addEventListener('click', (e) => {
       const clear = e.target.closest('#clear, [data-role="clear"]');
       if (!clear) return;
       try {
-        // TODO：在這裡清除暫存答案（若有）
-        console.log('[basic] 清除暫存答案（示意）');
+        localStorage.removeItem(DRAFT_KEY);
+        document.querySelectorAll('#qList input[type="radio"]:checked')
+          .forEach(r => (r.checked = false));
+        console.log('[basic] 已清除暫存答案');
       } catch (err) {
         console.error('[basic clear] failed:', err);
       }
@@ -86,24 +78,21 @@ location.href = `result.html?id=${encodeURIComponent(id)}`;
   document.addEventListener('DOMContentLoaded', async () => {
     console.log('[basic] DOM ready');
 
-    // 1) 呼叫渲染器：把題目畫出來
+    // 1) 渲染題目
     if (typeof window.renderBasic === 'function') {
-      try {
-        await window.renderBasic();
-      } catch (err) {
-        console.error('[basic] renderBasic() error:', err);
-      }
+      try { await window.renderBasic(); }
+      catch (err) { console.error('[basic] renderBasic() error:', err); }
     } else {
-      console.error('[basic] renderBasic 未定義：確認 basic.html 是否先載入 ./assets/js/ui/render-basic.js（且路徑/大小寫正確）');
+      console.error('[basic] renderBasic 未定義：請確認 ./assets/js/ui/render-basic.js 先於本檔載入，且路徑/大小寫正確');
     }
 
-    // 2) 矯正按鈕型態，避免原生 submit 攔截
+    // 2) 修正按鈕型態
     normalizeButtons();
 
-    // 3) 綁定事件（委派）
+    // 3) 綁事件（委派）
     bindDelegatedActions();
 
-    // 4) 若你的渲染器會重繪整個 <main>，用觀察器再矯正一次
+    // 4) 若渲染器會重繪，持續校正按鈕型態
     const obs = new MutationObserver(() => normalizeButtons());
     obs.observe(document.documentElement, { childList: true, subtree: true });
   });
