@@ -6,6 +6,8 @@
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#2563eb" />
   <title>基礎 32 題｜榮格八維自測</title>
+
+  <!-- 共用樣式 -->
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
 <body>
@@ -16,61 +18,24 @@
     <p class="muted small">題目僅顯示敘述，不會揭露對應的心理功能。</p>
   </header>
 
-  <main class="container stack-lg" data-testid="basic-root">
-    <!-- 系統訊息（載入／錯誤） -->
-    <section class="card" id="sysmsg" hidden>
-      <p class="muted" id="sysmsg-text">載入中…</p>
-    </section>
+  <main class="container">
+    <!-- 你的題目會被渲染進這個容器 -->
+    <div id="app"></div>
 
-    <!-- 進度 -->
-    <section class="card">
-      <div class="progress-row">
-        <div class="progress-label">
-          <strong id="counter" aria-live="polite">第 1 / 32 題</strong>
-        </div>
-        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="32" aria-valuenow="0">
-          <span id="progress" style="--pct:0%"></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- 題目 -->
-    <section class="card">
-      <h2 class="section-title">題目</h2>
-      <div id="question" class="question" data-testid="question" aria-live="polite"></div>
-    </section>
-
-    <!-- Likert 量表 -->
-    <section class="card">
-      <h2 class="section-title">你的選擇</h2>
-      <form id="form" class="likert-form" data-testid="likert-form">
-        <div id="likert-wrap" class="likert-wrap"></div>
-      </form>
-    </section>
-
-    <!-- 導航 -->
-    <section class="card actions" aria-label="操作">
-      <div class="btn-row">
-        <button id="btn-prev" class="btn btn-ghost" type="button" data-testid="btn-prev" disabled>上一題</button>
-        <button id="btn-next" class="btn" type="button" data-testid="btn-next" disabled>下一題</button>
-        <button id="btn-submit" class="btn" type="button" data-testid="btn-submit" disabled>提交</button>
-      </div>
-      <p id="nav-hint" class="muted small">作答後可切換上一題/下一題；全部作答完成後方可提交。</p>
-    </section>
-
-    <!-- 可選：提交前確認 -->
-    <dialog id="confirm-dialog">
-      <form method="dialog" class="stack">
-        <p>確定要提交嗎？提交後將保存此次作答並前往結果頁。</p>
-        <div class="btn-row">
-          <button value="cancel" class="btn btn-ghost">取消</button>
-          <button value="ok" class="btn">確認提交</button>
-        </div>
-      </form>
-    </dialog>
+    <!-- 底部操作列（id 可供 JS 鎖定） -->
+    <div class="actions" style="display:flex;gap:12px;margin:24px 0;">
+      <button id="clear" type="button" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border,#e2e8f0);background:#fff;">
+        清除未送出答案
+      </button>
+      <button id="submit" type="button" style="padding:10px 14px;border-radius:8px;border:none;background:var(--accent,#4caf50);color:#fff;font-weight:600;">
+        送出並查看結果
+      </button>
+    </div>
   </main>
 
-  <!-- 把入口腳本放在最底，避免任何 DOM 時序問題 -->
-  <script type="module" src="./assets/js/app-basic.js"></script>
+  <!-- 先載入渲染器（把 window.renderBasic 掛到全域） -->
+  <script src="./assets/js/ui/render-basic.js" defer></script>
+  <!-- 再載入口檔（呼叫 renderBasic 並處理送出） -->
+  <script src="./assets/js/app-basic.js" defer></script>
 </body>
 </html>
