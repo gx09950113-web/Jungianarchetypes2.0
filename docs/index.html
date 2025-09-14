@@ -5,48 +5,108 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#2563eb" />
-  <title>榮格八維測試｜首頁</title>
+  <title>首頁｜榮格八維測試</title>
   <link rel="stylesheet" href="./assets/css/style.css" />
   <style>
-    .container{max-width:920px;margin:0 auto;padding:16px;}
-    .grid{display:grid;gap:16px;}
-    @media(min-width:720px){.grid{grid-template-columns:1fr 1fr}}
-    a.card{display:block;padding:16px;border:1px solid var(--border,#e2e8f0);border-radius:12px;text-decoration:none;background:var(--card,#fff)}
-    a.card h2{margin:0 0 6px;font-size:18px}
-    .muted{color:var(--fg-muted,#64748b)}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    .btn{padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);background:#fff}
-    .btn.primary{border:none;background:var(--accent,#2563eb);color:#fff;font-weight:600}
+    :root{
+      --bg: #f8fafc;
+      --fg: #0f172a;
+      --fg-muted:#64748b;
+      --card:#ffffff;
+      --border:#e2e8f0;
+      --accent:#2563eb;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#0b1020; --fg:#e5e7eb; --fg-muted:#9aa3b2;
+        --card:#0f152a; --border:#2a3350; --accent:#3b82f6;
+      }
+    }
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"PingFang TC","Noto Sans CJK TC","Noto Sans TC","Microsoft JhengHei",sans-serif;}
+    .container{max-width:1080px;margin:0 auto;padding:24px 16px;}
+    header h1{margin:0 0 6px;font-size:28px}
+    header p{margin:0;color:var(--fg-muted);font-size:13px}
+    /* === Grid 版型 === */
+    .grid{
+      margin-top:20px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap:16px;
+      min-height: 62vh;
+    }
+    .card{
+      position:relative;
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:14px;
+      box-shadow: 0 2px 14px rgba(0,0,0,.04);
+      overflow:hidden;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .card:hover{ transform: translateY(-2px); box-shadow:0 6px 22px rgba(0,0,0,.10); border-color: color-mix(in oklab, var(--border) 70%, var(--accent)); }
+    .linkfill{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:inherit; text-decoration:none; padding:24px; }
+    /* 左側：直排文字的大卡，佔兩列 */
+    .card-basic{ grid-row: 1 / span 2; }
+    .card-basic .linkfill{
+      writing-mode: vertical-rl; text-orientation: upright; letter-spacing:.2em;
+      font-size:38px; font-weight:700;
+    }
+    /* 右側兩張卡的內容 */
+    .card h2{ margin:0; font-size:28px; font-weight:700; }
+    .muted{ color:var(--fg-muted); font-size:13px; margin-top:6px; }
+    .card-body{ padding:28px; display:flex; flex-direction:column; gap:10px; align-items:center; justify-content:center; height:100%;}
+    .pills{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 12px; border:1px solid var(--border); border-radius:999px;
+      text-decoration:none; color:inherit; background:transparent;
+    }
+    .pill:hover{ border-color:var(--accent); }
+    /* 回首頁鈕通用樣式（給其他頁複用） */
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:#fff;text-decoration:none;color:inherit}
+    .btn.primary{border:none;background:var(--accent);color:#fff;font-weight:600}
+    /* RWD：手機改為直排三張 */
+    @media (max-width: 760px){
+      .grid{ grid-template-columns: 1fr; grid-template-rows: auto; }
+      .card-basic{ grid-row: auto; }
+      .card-basic .linkfill{ writing-mode: initial; text-orientation: mixed; letter-spacing:0; font-size:28px; }
+    }
   </style>
 </head>
 <body>
   <header class="container">
     <h1>榮格八維測試</h1>
-    <p class="muted">請選擇測驗模式開始作答。</p>
+    <p>請選擇測驗模式；任何一種模式完成後都可在結果頁匯出或到「歷次紀錄」查看。</p>
   </header>
 
-  <main class="container grid">
-    <a class="card" href="./basic.html">
-      <h2>基礎測驗（32 題）</h2>
-      <p class="muted">每題 5 點量尺，A/B 兩側描述；約 5–8 分鐘。</p>
-      <div class="row"><span class="btn primary">開始</span></div>
-    </a>
+  <main class="container">
+    <section class="grid">
+      <!-- 左：基礎功能測試（整張可點，直排字） -->
+      <article class="card card-basic">
+        <a class="linkfill" href="./basic.html" aria-label="開始基礎 32 題">基礎功能評估</a>
+      </article>
 
-    <a class="card" href="./advanced.html?set=A">
-      <h2>進階測驗（題組 A/B/C）</h2>
-      <p class="muted">可選題組 A / B / C；每題同樣為 A/B 兩側描述。</p>
-      <div class="row">
-        <a class="btn" href="./advanced.html?set=A">題組 A</a>
-        <a class="btn" href="./advanced.html?set=B">題組 B</a>
-        <a class="btn" href="./advanced.html?set=C">題組 C</a>
-      </div>
-    </a>
+      <!-- 右上：進階功能評估 -->
+      <article class="card">
+        <a class="linkfill" href="./advanced.html" aria-label="進階功能評估">
+          <div class="card-body">
+            <h2>進階功能評估</h2>
+            <p class="muted">點進去後選擇題組 A/B/C</p>
+          </div>
+        </a>
+      </article>
 
-    <a class="card" href="./result.html">
-      <h2>查看最近一次結果</h2>
-      <p class="muted">若網址未帶 id，會嘗試讀取本機最近一筆作答。</p>
-      <div class="row"><span class="btn">開啟</span></div>
-    </a>
+      <!-- 右下：歷次紀錄 -->
+      <article class="card">
+        <a class="linkfill" href="./review.html" aria-label="查看歷次紀錄" style="position:static;inset:auto;width:100%;height:100%;">
+          <div class="card-body">
+            <h2>觀看歷次結果</h2>
+            <p class="muted">查看、載入或刪除已完成的測驗紀錄。</p>
+          </div>
+        </a>
+      </article>
+    </section>
   </main>
 </body>
 </html>

@@ -20,9 +20,13 @@
     <p class="muted small">若網址未帶 <code>?id=...</code>，會嘗試載入本機最近一筆作答。</p>
   </header>
 
-  <main class="container">
-    <div id="app" class="card">載入中…</div>
-  </main>
+<main class="container">
+  <div id="app" class="card">載入中…</div>
+  <div class="actions" style="margin-top:20px; display:flex; gap:12px;">
+    <a href="./index.html" class="btn" role="button">回首頁</a>
+  </div>
+</main>
+
 
   <!-- 結果頁採 ES Modules（因為 app-result.js 會 import 其他模組） -->
   <script type="module" src="./assets/js/app-result.js"></script>
