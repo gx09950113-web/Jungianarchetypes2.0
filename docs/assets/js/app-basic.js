@@ -22,6 +22,39 @@
         console.time('[basic submit]');
 
         // TODO：在這裡接回你的收集→計分→存檔
+        // 放在檔案頂端或 handler 外
+const DB_KEY    = 'jung_records_v1';       // 記錄庫
+const DRAFT_KEY = 'jung_basic_draft_v1';   // render-basic 用的草稿
+
+function collectBasicAnswers() {
+  // 先抓畫面上已選的；如果沒有，就用草稿（讓你能不用重填也能看結果）
+  const picked = {};
+  document.querySelectorAll('#qList input[type="radio"]:checked')
+    .forEach(r => picked[r.name] = Number(r.value));
+  if (Object.keys(picked).length) return picked;
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveRecord(rec) {
+  const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+  db[rec.id] = rec;
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+// 送出 handler 裡改成：
+const answers = collectBasicAnswers();
+const id = (crypto.randomUUID?.() || Date.now()).toString();
+const rec = {
+  id,
+  type: 'basic',
+  version: 1,
+  ts: Date.now(),
+  answers // { qid: 1..5 }
+};
+saveRecord(rec);
+location.href = `result.html?id=${encodeURIComponent(id)}`;
+
         // const answers = collectBasicAnswers();
         // const result  = computeBasic(answers);
         // const id = store.saveResult({ type:'basic', answers, result, ts: Date.now() });
