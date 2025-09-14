@@ -15,7 +15,7 @@ const CANDIDATE_BASES = ['./data','../data','/data'];
   }catch{}
 })();
 
-const DBG = (()=> new URLSearchParams(location.search).get('debug') !== '0')();
+const DBG = (()=> new URLSearchParams(location.search).get('debug') === '1')();
 
 function showOverlay(lines){
   if(!DBG) return;
