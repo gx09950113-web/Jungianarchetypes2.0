@@ -1,11 +1,13 @@
 /* =========================================
-   榮格八維自測：通用樣式（2025-09-13 改良版）
+   榮格八維自測：通用樣式（for new HTML structure）
    - 自動深淺色、流體排版
-   - A/B 固定卡片 + 置中量表
+   - A/B 固定卡片 + 置中量表（對應 render-basic / render-advanced）
    - 16型配色徽章（NT紫 / NF綠 / SP黃 / SJ藍）
    - 行動裝置捲動體驗修正
+   - 對應 render-result 圖表版面
    ========================================= */
 
+/* ========== Theme Tokens ========== */
 :root {
   --bg: #ffffff;
   --fg: #0f172a;          /* slate-900 */
@@ -22,18 +24,18 @@
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --shadow-sm: 0 4px 14px rgba(2, 6, 23, 0.06);
 
-  /* 量表強調 */
+  /* Likert scale emphasis */
   --scale-bg: var(--ghost);
   --scale-bg-hover: #00000008;
   --scale-ring: color-mix(in oklab, var(--accent) 55%, var(--border));
 
-  /* 16型配色（淺底） */
-  --nt-bg: #f3e8ff;  --nt-fg: #6b21a8;  --nt-bd: #d8b4fe;  /* 紫 NT */
-  --nf-bg: #e8f7ef;  --nf-fg: #1b8a5a;  --nf-bd: #b3ebcb;  /* 綠 NF */
-  --sp-bg: #fff7db;  --sp-fg: #a16207;  --sp-bd: #fde68a;  /* 黃 SP */
-  --sj-bg: #e6f0ff;  --sj-fg: #1e40af;  --sj-bd: #bfdbfe;  /* 藍 SJ */
+  /* 16-type palette (light) */
+  --nt-bg: #f3e8ff;  --nt-fg: #6b21a8;  --nt-bd: #d8b4fe;  /* NT */
+  --nf-bg: #e8f7ef;  --nf-fg: #1b8a5a;  --nf-bd: #b3ebcb;  /* NF */
+  --sp-bg: #fff7db;  --sp-fg: #a16207;  --sp-bd: #fde68a;  /* SP */
+  --sj-bg: #e6f0ff;  --sj-fg: #1e40af;  --sj-bd: #bfdbfe;  /* SJ */
 
-  /* 排版 */
+  /* Typography & layout */
   --font: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --size-hero: clamp(28px, 4vw, 40px);
   --size-h2: clamp(22px, 3vw, 28px);
@@ -42,7 +44,7 @@
   --size-sm: 14px;
   --container: min(960px, 92vw);
 
-  /* A/B 固定卡片頂部間距 */
+  /* Sticky A/B cards top */
   --stick-top: clamp(8px, 2.5vh, 24px);
 }
 
@@ -51,7 +53,7 @@
     --bg: #0b1220;        /* slate-950-ish */
     --fg: #e5e7eb;        /* slate-200 */
     --fg-muted: #9aa3b2;  /* slate-400 */
-    --border: #1f2a44;    /* darker */
+    --border: #1f2a44;
     --card: #0f172a;      /* slate-900 */
     --accent: #60a5fa;    /* blue-400 */
     --accent-600: #60a5fa;
@@ -61,7 +63,6 @@
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     --shadow-sm: 0 6px 16px rgba(0, 0, 0, 0.28);
 
-    /* 16型配色（深底微調） */
     --nt-bg: #3b1e5b;  --nt-fg: #e9d5ff;  --nt-bd: #7c3aed;
     --nf-bg: #0f2f22;  --nf-fg: #b7f5d2;  --nf-bd: #34d399;
     --sp-bg: #3a3003;  --sp-fg: #fde68a;  --sp-bd: #facc15;
@@ -69,20 +70,18 @@
   }
 }
 
-/* ===== Reset-ish ===== */
+/* ========== Base / Reset-ish ========== */
 * { box-sizing: border-box; }
-
-/* ⚠️ 改為 min-height，避免行動裝置因 100%/100vh 受工具列影響而卡住 */
 html, body { min-height: 100%; height: auto; }
 body {
   margin: 0;
   font-family: var(--font);
   color: var(--fg);
-  background: radial-gradient(1200px 600px at 80% -10%, var(--accent-50), transparent 60%), var(--bg);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, var(--accent-50), transparent 60%),
+    var(--bg);
   line-height: 1.6;
   font-size: var(--size-base);
-
-  /* 行動裝置慣性捲動 & 安全區 */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
@@ -93,8 +92,10 @@ a { color: var(--accent-600); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 .container { width: var(--container); margin-inline: auto; padding: 24px 0 48px; }
+.muted { color: var(--fg-muted); font-size: var(--size-sm); }
+.small { font-size: 12px; }
 
-/* ===== Hero / Head ===== */
+/* ========== Hero / Head ========== */
 .hero {
   width: var(--container);
   margin: 48px auto 8px;
@@ -105,7 +106,6 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow);
 }
 .hero h1 { margin: 0 0 8px; font-size: var(--size-hero); letter-spacing: -0.02em; }
-.muted { color: var(--fg-muted); font-size: var(--size-sm); }
 .warn {
   padding: 16px;
   border: 1px solid color-mix(in oklab, var(--danger) 40%, var(--border));
@@ -113,7 +113,7 @@ a:hover { text-decoration: underline; }
   border-radius: 12px;
 }
 
-/* ===== Buttons ===== */
+/* ========== Buttons ========== */
 .btn {
   --btn-bg: #ffffff00;
   --btn-fg: var(--fg);
@@ -126,7 +126,12 @@ a:hover { text-decoration: underline; }
   border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform .04s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
+  transition:
+    transform .04s ease,
+    box-shadow .2s ease,
+    background .2s ease,
+    border-color .2s ease,
+    color .2s ease;
   box-shadow: var(--shadow-sm);
 }
 .btn:hover { transform: translateY(-1px); }
@@ -135,11 +140,13 @@ a:hover { text-decoration: underline; }
 .btn.primary { --btn-bg: var(--accent-600); --btn-fg: white; --btn-bd: var(--accent-700); box-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 35%, transparent); }
 .btn.ghost { --btn-bg: var(--ghost); --btn-bd: transparent; }
 .btn.danger { --btn-bg: color-mix(in oklab, var(--danger) 16%, transparent); --btn-bd: color-mix(in oklab, var(--danger) 60%, transparent); --btn-fg: color-mix(in oklab, var(--danger) 90%, var(--fg)); }
-
 .actions, .head-actions, .adv-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
-/* ===== Cards / Sections ===== */
-.card {
+/* 讓提交按鈕絕對可點得到（避免被遮） */
+.actions, button[type="submit"] { position: relative; z-index: 9; pointer-events: auto !important; }
+
+/* ========== Card / Section ========== */
+.card, .q-card, section.card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -147,37 +154,70 @@ a:hover { text-decoration: underline; }
   padding: clamp(16px, 3vw, 24px);
 }
 
-/* ===== Quiz Page ===== */
-.quiz-root, .result-root {
+/* ========== Quiz (Basic / Advanced) ========== */
+.quiz-root, .result-root, #app {
   width: var(--container);
   margin: 32px auto 48px;
   display: grid;
   gap: 16px;
 }
 
-.quiz-header { display: flex; align-items: baseline; justify-content: space-between; padding: 8px 4px; }
-.quiz-header h2 { margin: 0; font-size: var(--size-h2); letter-spacing: -0.01em; }
-
-.quiz-qblock { 
-  border: 1px solid var(--border);
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: clamp(18px, 3vw, 26px);
-  box-shadow: var(--shadow);
-  position: relative; /* 讓 sticky 卡片參考 */
+/* 頁首 + 進度列（對應 render-basic / -advanced 的 #progress） */
+#progress {
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 0 16px; font-size: 14px;
 }
-.question { font-size: clamp(18px, 2.8vw, 22px); font-weight: 600; margin-bottom: 14px; letter-spacing: 0.01em; }
+#progText { color: var(--fg-muted); }
+#progBar {
+  width: 0%; height: 8px; background: var(--accent);
+}
+#progress > div:nth-child(2) {
+  flex: 1 1 auto; height: 8px; background: var(--accent-50);
+  border-radius: 999px; overflow: hidden;
+}
+#progress > div:nth-child(2) > #progBar {
+  height: 100%; transition: width .3s ease;
+  background: linear-gradient(90deg, var(--accent-600), color-mix(in oklab, var(--accent) 60%, var(--accent-600)));
+}
 
-/* === A/B 固定卡片（不可點，sticky） === */
+/* 單題卡片（.q-card）與標頭 */
+.q-card { border-radius: 12px; }
+.q-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.q-head .qid { font-weight: 600; color: var(--fg-muted); }
+.q-head .q-stem { font-size: 16px; line-height: 1.6; }
+
+/* A/B 文案列（對應 .ab-row） */
+.ab-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px;
+}
+.ab-row .optA, .ab-row .optB { font-size: 13px; color: var(--fg-muted); }
+.ab-row .optB { text-align: right; }
+
+/* Likert 五點量尺（對應 .likert） */
+.likert {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(56px,1fr));
+  gap: 8px; align-items: center;
+  margin: 12px 0 4px; padding: 0; list-style: none;
+}
+.likert li { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.likert input[type="radio"] {
+  width: 18px; height: 18px; cursor: pointer;
+  accent-color: var(--accent); /* 現代瀏覽器 */
+}
+.likert label {
+  font-size: 12px; color: var(--fg-muted);
+  text-align: center; user-select: none;
+}
+
+/* 進階頁 A/B 固定卡（若你的頁面有 .pair-cards/.pair-card） */
 .pair-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 12px 0 4px;
-
+  gap: 12px; margin: 12px 0 4px;
   position: sticky;
   top: calc(var(--stick-top) + env(safe-area-inset-top, 0px));
-  z-index: 10;
+  z-index: 5;
   background: color-mix(in oklab, var(--card) 92%, transparent);
   backdrop-filter: saturate(140%) blur(6px);
   border: 1px solid var(--border);
@@ -186,9 +226,7 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow-sm);
 }
 .pair-card {
-  height: 100%;
-  display: grid;
-  align-content: start;
+  display: grid; align-content: start;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, color-mix(in oklab, var(--fg-muted) 6%, transparent), transparent 60%), var(--card);
   border-radius: 14px;
@@ -205,55 +243,8 @@ a:hover { text-decoration: underline; }
   color: var(--fg);
   margin-right: 8px;
 }
-.pair-card p { margin: 0; }
 
-/* === 量表容器：水平置中、美觀排版 === */
-.answers {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-.scale-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: stretch;
-  gap: 12px;
-  margin-top: 14px; /* 增加間距，避免被 sticky 卡片壓迫 */
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* === 量表按鈕 === */
-.scale-btn {
-  min-width: 120px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--scale-bg);
-  text-align: center;
-  font-weight: 700;
-  line-height: 1.35;
-  cursor: pointer;
-  transition: transform .12s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
-  box-shadow: 0 4px 12px rgba(2,6,23,.05);
-}
-.scale-btn .k { display: block; font-size: 11px; opacity: .7; margin-bottom: 4px; }
-.scale-btn .t { display: block; font-size: 14px; letter-spacing: .01em; }
-
-.scale-btn:hover { background: var(--scale-bg-hover); transform: translateY(-2px); }
-.scale-btn:active { transform: translateY(-1px); }
-
-.scale-btn.selected {
-  background: color-mix(in oklab, var(--accent) 18%, transparent);
-  border-color: var(--scale-ring);
-  box-shadow: 0 10px 24px color-mix(in oklab, var(--accent) 25%, transparent);
-}
-
-/* 導航與進度 */
+/* ========== Quiz Nav / Progress widgets（若頁面有） ========== */
 .quiz-nav { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
 .quiz-nav .btn.prev, .quiz-nav .btn.next { min-width: 120px; }
 .quiz-nav .btn.clear { opacity: .9; }
@@ -278,6 +269,7 @@ a:hover { text-decoration: underline; }
   transition: width .3s ease;
 }
 
+/* 進階補充 panel（若頁面有 .quiz-adv-panel） */
 .quiz-adv-panel {
   display: grid; gap: 10px;
   border: 1px dashed var(--border);
@@ -288,7 +280,7 @@ a:hover { text-decoration: underline; }
     var(--card);
 }
 
-/* ===== Result Page ===== */
+/* ========== Result Page ========== */
 .res-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 6px 4px; }
 .res-header h2 { margin: 0; font-size: var(--size-h2); }
 
@@ -300,7 +292,7 @@ a:hover { text-decoration: underline; }
   padding: clamp(16px, 3vw, 24px);
 }
 
-.chart-wrap {
+.chart-wrap, .charts section {
   background: linear-gradient(180deg, color-mix(in oklab, var(--fg-muted) 8%, transparent), transparent 60%);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -308,46 +300,49 @@ a:hover { text-decoration: underline; }
   margin-bottom: 12px;
 }
 
-/* ===== Type Chips (16型顏色群組) ===== */
+/* 對應 render-result.js 產生的容器（.charts -> 兩張圖） */
+.charts {
+  display: grid; gap: 18px;
+  grid-template-columns: minmax(260px, 1fr);
+}
+.charts h3 { margin: 0 0 8px; font-size: var(--size-h3); }
+
+/* ========== 16-Type Badges ========== */
 .type-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  font-weight: 800;
-  letter-spacing: .02em;
+  font-weight: 800; letter-spacing: .02em;
   border: 1px solid transparent;
   box-shadow: 0 6px 16px rgba(2,6,23,.08);
 }
 .type-badge .tag { font-size: 12px; opacity: .8; }
 
-/* 群組：nt / nf / sp / sj */
+/* 群組配色 */
 .type-badge.nt { background: var(--nt-bg); color: var(--nt-fg); border-color: var(--nt-bd); }
 .type-badge.nf { background: var(--nf-bg); color: var(--nf-fg); border-color: var(--nf-bd); }
 .type-badge.sp { background: var(--sp-bg); color: var(--sp-fg); border-color: var(--sp-bd); }
 .type-badge.sj { background: var(--sj-bg); color: var(--sj-fg); border-color: var(--sj-bd); }
 
-/* 16型別直指樣式 */
+/* 直指型別（若你在結果頁直接標 ENTP/INFJ…） */
 .type-badge.ENTP,.type-badge.ENTJ,.type-badge.INTP,.type-badge.INTJ { background: var(--nt-bg); color: var(--nt-fg); border-color: var(--nt-bd); }
 .type-badge.ENFP,.type-badge.ENFJ,.type-badge.INFP,.type-badge.INFJ { background: var(--nf-bg); color: var(--nf-fg); border-color: var(--nf-bd); }
 .type-badge.ESTP,.type-badge.ESFP,.type-badge.ISTP,.type-badge.ISFP { background: var(--sp-bg); color: var(--sp-fg); border-color: var(--sp-bd); }
 .type-badge.ESFJ,.type-badge.ESTJ,.type-badge.ISFJ,.type-badge.ISTJ { background: var(--sj-bg); color: var(--sj-fg); border-color: var(--sj-bd); }
 
-/* ===== Tables ===== */
-table { width: 100%; border-collapse: collapse; font-size: 
+/* ========== Tables (若有摘要表/對照表) ========== */
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+thead th { color: var(--fg); }
+tbody tr:hover { background: color-mix(in oklab, var(--accent) 8%, transparent); }
 
-/* 讓提交按鈕絕對可點得到（避免被遮） */
-.actions,
-button[type="submit"] {
-  position: relative;
-  z-index: 9999;
-  pointer-events: auto !important;
-}
+/* ========== Safe overlays (debug/test) ========== */
+*[class*="mask"], *[class*="overlay"], *[class*="modal"] { pointer-events: none !important; }
 
-/* 若有全螢幕遮罩，先讓它不攔截點擊（測試用） */
-*[class*="mask"],
-*[class*="overlay"],
-*[class*="modal"] {
-  pointer-events: none !important;
+/* ========== Responsive tweaks ========== */
+@media (max-width: 640px) {
+  .ab-row { grid-template-columns: 1fr; gap: 8px; text-align: left; }
+  .likert { grid-template-columns: repeat(5, minmax(44px, 1fr)); }
+  .hero { margin: 32px auto 8px; padding: 24px 16px; }
+  .pair-cards { top: calc(6px + env(safe-area-inset-top, 0px)); }
 }
