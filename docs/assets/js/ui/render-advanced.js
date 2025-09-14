@@ -1,120 +1,218 @@
-// /docs/assets/js/ui/render-advanced.js
-import * as util from '../lib/util.js';
-import * as loader from '../lib/loader.js';
-import * as router from '../lib/router.js';
-import * as store from '../lib/store.js';
-
-let __startedAdvanced = false;
-
-export async function initRenderAdvanced(rootId = 'app', setFromApp = null) {
-  if (__startedAdvanced) return; __startedAdvanced = true;
-
-  let root=document.getElementById(rootId);
-  if(!root){ root=document.createElement('div'); root.id=rootId; document.body.appendChild(root); }
-  root.innerHTML='';
-
-  const q = router.getQuery?.() ?? Object.fromEntries(new URLSearchParams(location.search));
-  const SET = (setFromApp ? String(setFromApp) : String(q.set || q.group || 'A')).toUpperCase();
-  const SET_SAFE = ['A','B','C'].includes(SET) ? SET : 'A';
-  if (SET !== SET_SAFE) console.warn('[advanced] unknown set, fallback to A:', SET);
-
-  const title=document.createElement('h1'); title.textContent=`進階題組 ${SET_SAFE}`; root.appendChild(title);
-
-  let items=await loader.loadItemsAdv(SET_SAFE);
-  if(!Array.isArray(items)||items.length===0){ const p=document.createElement('p'); p.textContent=`找不到進階題庫資料（items_public_adv_${SET_SAFE}.json）。`; root.appendChild(p); return; }
-
-  const pickStem  =(it)=> it.stem ?? it.prompt ?? it.title ?? it.desc ?? it.description ?? '';
-  const pickTextA =(it)=> (Array.isArray(it.options)?it.options[0]:undefined) ?? it.A ?? it.a ?? it.optionA ?? it.textA ?? it.left ?? it.l ?? it.statementA ?? '';
-  const pickTextB =(it)=> (Array.isArray(it.options)?it.options[1]:undefined) ?? it.B ?? it.b ?? it.optionB ?? it.textB ?? it.right ?? it.r ?? it.statementB ?? '';
-  const pickId    =(it,i)=> it.id ?? it._id ?? it.key ?? `q${i+1}`;
-
-  const originalOrder=items.map((it,i)=>pickId(it,i));
-  items=util.shuffle(items.slice());
-
-  const hint=document.createElement('p');
-  hint.innerHTML=`請在每題的 A 與 B 之間做傾向選擇：<br/><strong>非常同意A、較同意A、中立、較同意B、非常同意B</strong><br/>（僅顯示敘述，不顯示任何功能名稱）`;
-  root.appendChild(hint);
-
-  const progressWrap=document.createElement('div'); progressWrap.style.margin='12px 0';
-  const progressText=document.createElement('div'); progressText.textContent=`0 / ${items.length}`;
-  const progressBar=document.createElement('div'); progressBar.style.cssText='height:8px;background:#eee;border-radius:999px;overflow:hidden';
-  const progressInner=document.createElement('div'); progressInner.style.cssText='height:100%;width:0%;background:var(--accent,#4caf50)';
-  progressBar.appendChild(progressInner); progressWrap.appendChild(progressText); progressWrap.appendChild(progressBar); root.appendChild(progressWrap);
-
-  const form=document.createElement('form'); form.autocomplete='off'; form.noValidate=true; root.appendChild(form);
-
-  const SCALE=[{label:'非常同意A',value:-2},{label:'較同意A',value:-1},{label:'中立',value:0},{label:'較同意B',value:1},{label:'非常同意B',value:2}];
-  const answerMap=new Map();
-
-  items.forEach((it,idx)=>{
-    const qId=pickId(it,idx);
-    const stem=String(pickStem(it)??'').trim();
-    const textA=String(pickTextA(it)??'').trim();
-    const textB=String(pickTextB(it)??'').trim();
-
-    const block=document.createElement('section'); block.className='q-block'; block.style.cssText='border:1px solid var(--line,#ddd);border-radius:8px;padding:12px;margin:12px 0';
-    const head=document.createElement('div'); head.className='q-head'; head.style.cssText='font-weight:600;margin-bottom:8px'; head.textContent=`第 ${idx+1} 題`; block.appendChild(head);
-
-    if(stem){ const stemEl=document.createElement('div'); stemEl.className='q-stem'; stemEl.style.cssText='margin-bottom:8px;color:var(--fg-muted,#64748b);font-size:14px;'; stemEl.textContent=stem; block.appendChild(stemEl); }
-
-    const abRow=document.createElement('div'); abRow.className='q-ab-row'; abRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:12px';
-    const aBox=document.createElement('div'); aBox.className='q-a'; aBox.innerHTML=`<div style="font-size:12px;opacity:.75;">A</div><div>${escapeHTML(textA)}</div>`; aBox.style.cssText='border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
-    const bBox=document.createElement('div'); bBox.className='q-b'; bBox.innerHTML=`<div style="font-size:12px;opacity:.75;">B</div><div>${escapeHTML(textB)}</div>`; bBox.style.cssText='border:1px dashed var(--line,#ddd);border-radius:6px;padding:8px';
-    abRow.appendChild(aBox); abRow.appendChild(bBox); block.appendChild(abRow);
-
-    const scaleRow=document.createElement('div'); scaleRow.className='q-scale'; scaleRow.style.cssText=`display:grid;grid-template-columns:repeat(${SCALE.length},1fr);gap:8px;margin-top:10px`;
-    const groupName=`q_${qId}`;
-    SCALE.forEach(opt=>{
-      const cell=document.createElement('label'); cell.className='scale-cell'; cell.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border:1px solid var(--line,#ddd);border-radius:6px;cursor:pointer';
-      const radio=document.createElement('input'); radio.type='radio'; radio.name=groupName; radio.value=String(opt.value);
-      radio.addEventListener('change',()=>{ answerMap.set(groupName, Number(radio.value)); updateProgress(); });
-      const small=document.createElement('small'); small.textContent=opt.label;
-      cell.appendChild(radio); cell.appendChild(small); scaleRow.appendChild(cell);
+// docs/assets/js/ui/render-advanced.js
+(function () {
+  // ---------- 小工具 ----------
+  const $  = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  function el(tag, props={}, children=[]) {
+    const node = document.createElement(tag);
+    for (const [k,v] of Object.entries(props)) {
+      if (v == null) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
+      else if (k in node) node[k] = v;
+      else node.setAttribute(k, v);
+    }
+    (Array.isArray(children) ? children : [children]).forEach(c => {
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     });
-    block.appendChild(scaleRow); form.appendChild(block);
-  });
+    return node;
+  }
 
-  const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:12px;margin:16px 0';
-  const btnSubmit=document.createElement('button'); btnSubmit.type='submit'; btnSubmit.textContent='送出並查看結果';
-  btnSubmit.style.cssText='padding:10px 14px;border-radius:8px;border:none;background:var(--accent,#4caf50);color:#fff;font-weight:600';
-  const btnReset=document.createElement('button'); btnReset.type='button'; btnReset.textContent='清除未送出作答';
-  btnReset.style.cssText='padding:10px 14px;border-radius:8px;border:1px solid var(--line,#ddd)';
-  btnReset.addEventListener('click',()=>{ form.reset(); answerMap.clear(); updateProgress(); });
-  actions.appendChild(btnSubmit); actions.appendChild(btnReset); root.appendChild(actions);
-
-  // 強化 submit：一定跳頁
-  form.addEventListener('submit',(e)=>{
-    e.preventDefault();
-    try{
-      const total=items.length;
-      const names=items.map((it,idx)=>`q_${pickId(it,idx)}`);
-      const missing=names.filter(n=>!answerMap.has(n));
-      if(missing.length>0){ alert(`尚有 ${missing.length} 題未作答，請完成所有題目。`); return; }
-
-      const answers=[], orderCurrent=[];
-      items.forEach((it,idx)=>{ const id=pickId(it,idx); const val=Number(answerMap.get(`q_${id}`)); answers.push(val); orderCurrent.push(id); });
-
-      const session={
-        id: util.uuid(), kind:'advanced', set: SET_SAFE, createdAt: util.nowISO(), version:1,
-        meta:{ total, scale:'A/B 5-point (-2..2)' },
-        originalOrder, order: orderCurrent,
-        items: items.map((it,idx)=>({ id:pickId(it,idx), stem:String(pickStem(it)??''), A:String(pickTextA(it)??''), B:String(pickTextB(it)??'') })),
-        answers,
-      };
-
-      let saved=false;
-      try{ store.saveResult(session); saved=true; }
-      catch(err){
-        console.warn('[advanced submit] saveResult 失敗，寫入 fallback：', err);
-        try{ const k='__results_fallback'; const list=JSON.parse(localStorage.getItem(k)||'[]'); list.unshift({id:session.id, session, savedAt: util.nowISO()}); localStorage.setItem(k, JSON.stringify(list.slice(0,20))); saved=true; }
-        catch(e2){ console.error('[advanced submit] fallback 也失敗：', e2); }
+  // ---------- 資料載入（優先 loader，否則 fallback） ----------
+  async function loadWithLoader(set) {
+    const mod = await import('../lib/loader.js');
+    return await mod.loadItemsAdv(set);
+  }
+  async function fetchJSON(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    return await res.json();
+  }
+  function candidateBases() {
+    const bases = ['./data','../data','/data','./docs/data','../docs/data'];
+    try {
+      const u = new URL(document.baseURI);
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts.length >= 1) {
+        const repo = `/${parts[0]}`;
+        for (const p of [`${repo}/data`, `${repo}/docs/data`]) {
+          if (!bases.includes(p)) bases.push(p);
+        }
       }
-      console.debug('[advanced submit] navigate, set=', SET_SAFE, 'saved=', saved, 'id=', session.id);
-      location.assign(`result.html?id=${encodeURIComponent(session.id)}`);
-    }catch(fatal){ console.error('[advanced submit] fatal:', fatal); alert('送出發生錯誤：'+(fatal?.message||fatal)); }
-  });
+    } catch {}
+    return [...new Set(bases)];
+  }
+  async function loadWithFallback(set) {
+    const S = String(set).toUpperCase();
+    const rel = `items_public_adv_${S}.json`;
+    const bases = candidateBases();
+    const errs = [];
+    for (const b of bases) {
+      const url = `${b}/${rel}`.replace(/\/{2,}/g,'/');
+      try { return await fetchJSON(url); }
+      catch (e) { errs.push(`${url} → ${e.message}`); }
+    }
+    throw new Error(`[render-advanced] 無法載入 ${rel}\n候選：\n- ${bases.join('\n- ')}\n錯誤：\n- ${errs.join('\n- ')}`);
+  }
+  async function loadItemsAdv(set) {
+    try { return await loadWithLoader(set); }
+    catch { return await loadWithFallback(set); }
+  }
 
-  function updateProgress(){ const answered=answerMap.size, total=items.length; progressText.textContent=`${answered} / ${total}`; const pct=total>0?Math.round(answered/total*100):0; progressInner.style.width=`${pct}%`; }
-  function escapeHTML(s){ return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-}
-// ★ 檔尾不自動啟動（原檔的自啟動要移除）
+  // ---------- UI：Likert（5點，固定 A/B 文案） ----------
+  function Likert({ name, value=null }) {
+    const labels = ['非常同意A','較同意A','我不知道','較同意B','非常同意B'];
+    const ul = el('ul', {
+      class: 'likert',
+      style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(5, minmax(56px,1fr))',
+        gap: '8px', alignItems: 'center',
+        margin: '12px 0 4px', padding: 0, listStyle: 'none'
+      }
+    });
+    for (let i = 1; i <= 5; i++) {
+      const id = `${name}-${i}`;
+      ul.appendChild(
+        el('li', { style: { display:'flex', flexDirection:'column', alignItems:'center', gap:'6px' } }, [
+          el('input', { id, name, type:'radio', value:String(i), checked:(value == i), style:{ width:'18px', height:'18px', cursor:'pointer' } }),
+          el('label', { htmlFor:id, class:'muted small', style:{ fontSize:'12px', color:'var(--fg-muted,#64748b)', textAlign:'center', userSelect:'none' } }, labels[i-1])
+        ])
+      );
+    }
+    return ul;
+  }
+
+  // ---------- UI：單題卡片 ----------
+  function renderItemCard(item, savedVal) {
+    const stem = item.stem ?? item.text ?? '';
+    const [optA, optB] = Array.isArray(item.options) ? item.options : [null, null];
+
+    const header = el('div', { class:'q-head', style:{ display:'flex', alignItems:'baseline', gap:'8px', marginBottom:'8px' } }, [
+      el('div', { class:'qid', style:{ fontWeight:600, color:'var(--fg-muted,#64748b)' } }, item.id),
+      el('div', { class:'q-stem', style:{ fontSize:'16px', lineHeight:1.6 } }, stem)
+    ]);
+
+    const abRow = (optA || optB) ? el('div', {
+      class:'ab-row',
+      style:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginTop:'6px' }
+    }, [
+      el('div', { class:'optA', style:{ fontSize:'13px', color:'var(--fg-muted,#64748b)' } }, ['A．', optA || '（選項A）']),
+      el('div', { class:'optB', style:{ fontSize:'13px', color:'var(--fg-muted,#64748b)', textAlign:'right' } }, [optB || '（選項B）', ' ．B'])
+    ]) : null;
+
+    return el('section', {
+      class:'q-card', 'data-qid': item.id,
+      style:{
+        border:'1px solid var(--border,#e2e8f0)', borderRadius:'12px',
+        padding:'16px', margin:'12px 0', background:'var(--card,#fff)'
+      }
+    }, [
+      header,
+      abRow,
+      Likert({ name:item.id, value:savedVal })
+    ]);
+  }
+
+  // ---------- 主渲染 ----------
+  async function renderAdvancedImpl(setFromCaller) {
+    // 1) 決定題組（A/B/C）
+    const sp = new URLSearchParams(location.search);
+    const S = String(setFromCaller || sp.get('set') || 'A').toUpperCase();
+    const SET = /^(A|B|C)$/.test(S) ? S : 'A';
+
+    // 2) 每個題組用獨立草稿 key
+    const DRAFT_KEY = `jung_adv_${SET}_draft_v1`;
+    const storage = {
+      load() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } },
+      save(v){ localStorage.setItem(DRAFT_KEY, JSON.stringify(v || {})); },
+      clear(){ localStorage.removeItem(DRAFT_KEY); }
+    };
+
+    // 3) 清空容器
+    const root = $('#app') || document.body;
+    root.innerHTML = '';
+
+    // 4) 標頭 + 進度
+    root.appendChild(
+      el('div', { style:{ margin:'8px 0 12px' } }, [
+        el('p', { class:'muted', style:{ color:'var(--fg-muted,#64748b)', fontSize:'14px' } },
+          `進階測驗（題組 ${SET}）。每題提供 A / B 兩側描述，量尺代表你傾向哪一側；沒有對錯之分。`)
+      ])
+    );
+    const progWrap = el('div', {
+      id:'progress',
+      style:{ display:'flex', alignItems:'center', gap:'10px', margin:'8px 0 16px', fontSize:'14px' }
+    }, [
+      el('div', { id:'progText' }, '完成度 0 / 0'),
+      el('div', { style:{ flex:'1 1 auto', height:'8px', background:'var(--accent-50,#eff6ff)', borderRadius:'999px', overflow:'hidden' } }, [
+        el('div', { id:'progBar', style:{ width:'0%', height:'100%', background:'var(--accent,#2563eb)' } })
+      ])
+    ]);
+    root.appendChild(progWrap);
+
+    // 5) 載入題庫（優先 loader）
+    let items = await loadItemsAdv(SET);
+    items = items.map((it, i) => ({
+      id: it.id ?? `q_${i+1}`,
+      stem: (it.stem ?? it.text ?? '').trim(),
+      options: Array.isArray(it.options) ? it.options.slice(0,2) : [null, null]
+    }));
+
+    // 6) 草稿
+    const draft = storage.load();
+
+    // 7) 題目列表
+    const list = el('div', { id:'qList' });
+    items.forEach(it => list.appendChild(renderItemCard(it, draft[it.id] || null)));
+    root.appendChild(list);
+
+    // 8) 進度更新
+    const updateProgress = () => {
+      const total = items.length;
+      const done = items.reduce((n, it) => n + (draft[it.id] ? 1 : 0), 0);
+      $('#progText').textContent = `完成度 ${done} / ${total}`;
+      $('#progBar').style.width = `${total ? Math.round(done/total*100) : 0}%`;
+    };
+
+    // 9) 即時存草稿
+    list.addEventListener('change', (e) => {
+      const input = e.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== 'radio') return;
+      draft[input.name] = input.value; // 1..5
+      storage.save(draft);
+      updateProgress();
+    });
+
+    // 10) 清除草稿按鈕（共用 #clear）
+    const clearBtn = $('#clear, [data-role="clear"]');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        storage.clear();
+        Object.keys(draft).forEach(k => delete draft[k]);
+        $$('#qList input[type="radio"]:checked').forEach(r => (r.checked = false));
+        updateProgress();
+        console.log(`[advanced ${SET}] 已清除暫存答案`);
+      });
+    }
+
+    // 11) 初始進度
+    updateProgress();
+
+    // 12) 鍵盤左右切換
+    list.addEventListener('keydown', (e) => {
+      if (!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+      const input = e.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== 'radio') return;
+      const name = input.name;
+      const current = Number(input.value);
+      const next = e.key === 'ArrowLeft' ? Math.max(1, current - 1) : Math.min(5, current + 1);
+      const nxt = $(`#qList input[name="${CSS.escape(name)}"][value="${next}"]`);
+      if (nxt) { nxt.focus(); nxt.click(); }
+      e.preventDefault();
+    });
+  }
+
+  // 掛到全域：renderAdvanced(set?)，set 可省略（預設讀 URL ?set=，預設 A）
+  window.renderAdvanced = renderAdvancedImpl;
+})();
