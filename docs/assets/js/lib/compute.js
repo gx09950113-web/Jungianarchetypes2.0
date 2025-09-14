@@ -12,7 +12,6 @@ function emptyVec() {
 // 從一個權重 entry 萃取出 8 功能向量（Ni..Fe）
 function normalizeWeightEntry(entry) {
   if (!entry || typeof entry !== 'object') return null;
-  // 常見結構：entry.func / entry.functions / entry.weights / entry.w / 直接攤在 entry
   const src = entry.func || entry.functions || entry.weights || entry.w || entry;
   const out = {};
   let found = false;
@@ -62,7 +61,7 @@ export function compute(answers, weights) {
     if (!id || !Number.isFinite(value)) continue;
 
     const vec = W.get(id);
-    if (!vec) continue; // 權重缺這題就跳過
+    if (!vec) continue;
     used++;
 
     for (const k of ORDER) {
@@ -70,7 +69,6 @@ export function compute(answers, weights) {
     }
   }
 
-  // 四向度（一種常見推導；若你有自定公式，可後續替換）
   const E = (funcs.Ne + funcs.Se + funcs.Te + funcs.Fe);
   const I = (funcs.Ni + funcs.Si + funcs.Ti + funcs.Fi);
   const N = (funcs.Ni + funcs.Ne);
@@ -81,10 +79,10 @@ export function compute(answers, weights) {
   const P = (funcs.Ne + funcs.Se);
 
   const dims = {
-    EI: E - I,   // >0 偏 E，<0 偏 I
-    SN: N - S,   // >0 偏 N，<0 偏 S
-    TF: T - F,   // >0 偏 T，<0 偏 F
-    JP: J - P,   // >0 偏 J，<0 偏 P
+    EI: E - I,
+    SN: N - S,
+    TF: T - F,
+    JP: J - P,
   };
 
   const mbti =
