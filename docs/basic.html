@@ -2,40 +2,38 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#2563eb" />
-  <title>基礎 32 題｜榮格八維自測</title>
-
-  <!-- 共用樣式 -->
+  <title>基礎 32 題｜榮格八維測試</title>
   <link rel="stylesheet" href="./assets/css/style.css" />
+  <style>
+    .container{max-width:920px;margin:0 auto;padding:16px;}
+    .actions{display:flex;gap:12px;margin:24px 0}
+    .btn{padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);background:#fff}
+    .btn.primary{border:none;background:var(--accent,#4caf50);color:#fff;font-weight:600}
+    .muted{color:var(--fg-muted,#64748b)}
+    .small{font-size:12px}
+  </style>
 </head>
 <body>
   <noscript>本頁需要啟用 JavaScript 才能作答。</noscript>
 
   <header class="container">
-    <h1 class="title">基礎測驗（32 題）</h1>
-    <p class="muted small">題目僅顯示敘述，不會揭露對應的心理功能。</p>
+    <h1>基礎測驗（32 題）</h1>
+    <p class="muted small">量尺為「非常同意A → 非常同意B」，中間為「我不知道」。</p>
   </header>
 
   <main class="container">
-    <!-- 你的題目會被渲染進這個容器 -->
     <div id="app"></div>
-
-    <!-- 底部操作列（id 可供 JS 鎖定） -->
-    <div class="actions" style="display:flex;gap:12px;margin:24px 0;">
-      <button id="clear" type="button" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border,#e2e8f0);background:#fff;">
-        清除未送出答案
-      </button>
-      <button id="submit" type="button" style="padding:10px 14px;border-radius:8px;border:none;background:var(--accent,#4caf50);color:#fff;font-weight:600;">
-        送出並查看結果
-      </button>
+    <div class="actions">
+      <button id="clear" class="btn" type="button">清除未送出答案</button>
+      <button id="submit" class="btn primary" type="button">送出並查看結果</button>
     </div>
   </main>
 
-  <!-- 先載入渲染器（把 window.renderBasic 掛到全域） -->
+  <!-- 先載渲染器，再載入口檔（順序不能反） -->
   <script src="./assets/js/ui/render-basic.js" defer></script>
-  <!-- 再載入口檔（呼叫 renderBasic 並處理送出） -->
   <script src="./assets/js/app-basic.js" defer></script>
 </body>
 </html>

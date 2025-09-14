@@ -2,106 +2,51 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#2563eb" />
-  <title>榮格八維自測｜首頁</title>
-
-  <!-- 共用樣式 -->
+  <title>榮格八維測試｜首頁</title>
   <link rel="stylesheet" href="./assets/css/style.css" />
+  <style>
+    .container{max-width:920px;margin:0 auto;padding:16px;}
+    .grid{display:grid;gap:16px;}
+    @media(min-width:720px){.grid{grid-template-columns:1fr 1fr}}
+    a.card{display:block;padding:16px;border:1px solid var(--border,#e2e8f0);border-radius:12px;text-decoration:none;background:var(--card,#fff)}
+    a.card h2{margin:0 0 6px;font-size:18px}
+    .muted{color:var(--fg-muted,#64748b)}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);background:#fff}
+    .btn.primary{border:none;background:var(--accent,#2563eb);color:#fff;font-weight:600}
+  </style>
 </head>
 <body>
-  <noscript>請啟用 JavaScript 以獲得完整體驗。</noscript>
-
-  <!-- Hero -->
   <header class="container">
-    <h1 class="title">榮格八維自測</h1>
-    <p class="muted">
-      先做 <strong>基礎 32 題</strong> 建立你的初始輪廓，再做 <strong>進階 A/B/C</strong> 精煉結果。
-      完成的紀錄會保存在你的瀏覽器，之後可到「歷次紀錄」回看或刪除。
-    </p>
+    <h1>榮格八維測試</h1>
+    <p class="muted">請選擇測驗模式開始作答。</p>
   </header>
 
-  <main class="container stack-lg">
-    <!-- 卡片組：三大入口 -->
-    <section aria-label="主要功能">
-      <div class="cards-grid">
-        <!-- 基礎 32 -->
-        <article class="card feature">
-          <div class="feature-head">
-            <div class="feature-ico" aria-hidden="true">🧭</div>
-            <h2 class="section-title">基礎 32 題</h2>
-          </div>
-          <p class="muted">
-            隨機題序、不顯示功能名稱。完成後自動儲存並前往結果頁。
-          </p>
-          <div class="btn-row">
-            <a class="btn" href="./basic.html" data-testid="go-basic">開始作答</a>
-          </div>
-        </article>
+  <main class="container grid">
+    <a class="card" href="./basic.html">
+      <h2>基礎測驗（32 題）</h2>
+      <p class="muted">每題 5 點量尺，A/B 兩側描述；約 5–8 分鐘。</p>
+      <div class="row"><span class="btn primary">開始</span></div>
+    </a>
 
-        <!-- 進階題組 -->
-        <article class="card feature">
-          <div class="feature-head">
-            <div class="feature-ico" aria-hidden="true">🎯</div>
-            <h2 class="section-title">進階題組</h2>
-          </div>
-          <p class="muted">
-            僅顯示敘述、不揭露主／輔功能排序。可自由選擇 A / B / C 題組。
-          </p>
-          <div class="btn-row">
-            <a class="btn" href="./advanced.html?set=A" data-testid="go-adv-a">題組 A</a>
-            <a class="btn" href="./advanced.html?set=B" data-testid="go-adv-b">題組 B</a>
-            <a class="btn" href="./advanced.html?set=C" data-testid="go-adv-c">題組 C</a>
-          </div>
-        </article>
-
-        <!-- 歷次紀錄 -->
-        <article class="card feature">
-          <div class="feature-head">
-            <div class="feature-ico" aria-hidden="true">📒</div>
-            <h2 class="section-title">歷次紀錄</h2>
-          </div>
-          <p class="muted">
-            查看或刪除已完成的測驗；點擊任一筆可重溫雷達圖與 MBTI 推論。
-          </p>
-          <div class="btn-row">
-            <a class="btn" href="./review.html" data-testid="go-review">打開紀錄</a>
-            <a class="btn btn-ghost" href="./result.html" data-testid="go-result-dry">測試結果頁</a>
-          </div>
-        </article>
+    <a class="card" href="./advanced.html?set=A">
+      <h2>進階測驗（題組 A/B/C）</h2>
+      <p class="muted">可選題組 A / B / C；每題同樣為 A/B 兩側描述。</p>
+      <div class="row">
+        <a class="btn" href="./advanced.html?set=A">題組 A</a>
+        <a class="btn" href="./advanced.html?set=B">題組 B</a>
+        <a class="btn" href="./advanced.html?set=C">題組 C</a>
       </div>
-    </section>
+    </a>
 
-    <!-- 關於／資料來源 -->
-    <section class="card">
-      <h2 class="section-title">關於本專案</h2>
-      <p class="muted">
-        題庫與權重載於 <code>/docs/data</code>，前端僅以瀏覽器端計算與儲存。
-        如需了解功能鍵與 MBTI 對照，請參考：
-      </p>
-      <div class="btn-row">
-        <a class="btn btn-ghost" href="./data/mapping/funcs.json" target="_blank" rel="noopener">功能鍵說明</a>
-        <a class="btn btn-ghost" href="./data/mapping/types.json" target="_blank" rel="noopener">MBTI 描述</a>
-        <a class="btn btn-ghost" href="./README.md" target="_blank" rel="noopener">README</a>
-      </div>
-    </section>
+    <a class="card" href="./result.html">
+      <h2>查看最近一次結果</h2>
+      <p class="muted">若網址未帶 id，會嘗試讀取本機最近一筆作答。</p>
+      <div class="row"><span class="btn">開啟</span></div>
+    </a>
   </main>
-
-  <footer class="container muted small" role="contentinfo">
-    <hr />
-    <p>© 2025 榮格八維自測網站 · 你的資料僅存於本機瀏覽器（<code>localStorage</code>）。</p>
-  </footer>
-
-  <!-- 小掛鉤（非必要）：如果你在 style.css 有對 .cards-grid / .feature-* 做排版就能漂亮呈現 -->
-  <script>
-    // 可選：若沒有帶 id 直接造訪 result.html，顯示提示（不阻擋）
-    document.querySelector('[data-testid="go-result-dry"]')
-      ?.addEventListener('click', (e) => {
-        if (!location.search.includes('id=')) {
-          alert('這是測試入口：若未先完成作答，result.html 會顯示「讀取中」。');
-        }
-      });
-  </script>
 </body>
 </html>
